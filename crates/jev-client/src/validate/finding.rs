@@ -91,6 +91,8 @@ pub enum Rule {
     AssetData,
     /// An asset's `format` is missing, or not `png`, `jpg` or `jpeg`.
     AssetFormat,
+    /// An asset's `data_base64` is not base64, not a PNG or JPEG, or outside the size limits.
+    AssetImage,
     /// An asset's reference appears nowhere in the state or the questions, which the API refuses.
     AssetUnreferenced,
     /// The whole request is estimated to be near, or beyond, the 64k-token budget.
@@ -115,7 +117,7 @@ pub enum Rule {
 
 impl Rule {
     /// Every rule, in the order they are documented.
-    pub const ALL: [Self; 41] = [
+    pub const ALL: [Self; 42] = [
         Self::RequestShape,
         Self::UnknownField,
         Self::StateMissing,
@@ -148,6 +150,7 @@ impl Rule {
         Self::AssetType,
         Self::AssetData,
         Self::AssetFormat,
+        Self::AssetImage,
         Self::AssetUnreferenced,
         Self::SizeTotal,
         Self::SizeQuestion,
@@ -196,6 +199,7 @@ impl Rule {
             Self::AssetType => "asset-type",
             Self::AssetData => "asset-data",
             Self::AssetFormat => "asset-format",
+            Self::AssetImage => "asset-image",
             Self::AssetUnreferenced => "asset-unreferenced",
             Self::SizeTotal => "size-total",
             Self::SizeQuestion => "size-question",

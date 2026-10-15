@@ -89,6 +89,7 @@ mod error;
 #[doc(hidden)]
 pub mod fuzz;
 mod http;
+mod image;
 mod models;
 pub mod pricing;
 mod question;
@@ -107,6 +108,7 @@ pub use clock::{Clock, SystemClock};
 pub use content::Content;
 pub use error::{Error, ErrorKind};
 pub use http::{HttpTransport, HttpTransportBuilder};
+pub use image::{ImageInfo, MAX_IMAGE_PIXELS, MAX_IMAGE_SIDE, MIN_IMAGE_PIXELS, MIN_IMAGE_SIDE};
 pub use models::{ModelCard, ModelList};
 pub use question::{BoxQuestion, Choice, Noul, NoulCriteria, Question, Score};
 pub use request::Request;

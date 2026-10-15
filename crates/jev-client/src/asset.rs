@@ -19,10 +19,10 @@ pub const IMAGE_FORMATS: [&str; 3] = ["png", "jpg", "jpeg"];
 /// ```
 /// use jev_client::Asset;
 ///
-/// let image = Asset::image_base64("iVBORw0KGgo=", "png");
+/// let image = Asset::image_base64("iVBORw0KGgoAAAANSUhEUgAAAZAAAAEsCAIAAABi1XKV", "png");
 /// assert_eq!(
 ///     serde_json::to_string(&image).unwrap(),
-///     r#"{"type":"image","data_base64":"iVBORw0KGgo=","format":"png"}"#
+///     r#"{"type":"image","data_base64":"iVBORw0KGgoAAAANSUhEUgAAAZAAAAEsCAIAAABi1XKV","format":"png"}"#
 /// );
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

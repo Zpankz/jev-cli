@@ -179,7 +179,10 @@ async fn the_images_header_is_sent_only_with_an_asset_or_a_box_question() {
     let clock = FakeClock::new();
     let transport = builder(&server, &clock).build().unwrap();
 
-    let with_asset = request().asset("img", Asset::image_base64("aGk=", "png"));
+    let with_asset = request().asset(
+        "img",
+        Asset::image_base64("iVBORw0KGgoAAAANSUhEUgAAAZAAAAEsCAIAAABi1XKV", "png"),
+    );
     transport.evaluate(&with_asset).await.unwrap();
     let with_box = Request::new("s", "jev-preview").question("q", BoxQuestion::new("the mug"));
     transport.evaluate(&with_box).await.unwrap();
@@ -189,7 +192,7 @@ async fn the_images_header_is_sent_only_with_an_asset_or_a_box_question() {
     let sent: Value = serde_json::from_slice(&received[0].body).unwrap();
     assert_eq!(
         sent["assets"]["img"],
-        serde_json::json!({ "type": "image", "data_base64": "aGk=", "format": "png" })
+        serde_json::json!({ "type": "image", "data_base64": "iVBORw0KGgoAAAANSUhEUgAAAZAAAAEsCAIAAABi1XKV", "format": "png" })
     );
 
     server.reset().await;

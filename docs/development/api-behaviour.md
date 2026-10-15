@@ -95,8 +95,9 @@ an instruction with a backticked path such as `` `ticket.messages[0].text` ``.
 - Image tokens are billed as input tokens and show in `usage.input_tokens` (a 400x300 PNG with
   two questions cost 637). TypeSafe gives no way to estimate them, so `jev`'s size estimate
   covers the text only.
-- Limits as documented: PNG or JPEG, 256 to 1568 px a side, 16 MiB per image, 32 MiB per
-  request body. Not re-measured.
+- Limits as documented: PNG or JPEG, 256 to 1568 px a side, 78,400 to 2,458,624 px in all,
+  16 MiB per image, 32 MiB per request body, and one bad image fails the whole request. Not
+  re-measured; validation reads the size from the PNG or JPEG header and applies them offline.
 
 ## Model facts and limits
 

@@ -6,7 +6,11 @@ use super::document::{Document, child_pointer};
 use super::finding::{Finding, Rule};
 use super::size::SizeEstimate;
 use super::{MAX_CHOICE_OPTIONS, MAX_SCORE_LEVELS, MIN_SCORE_LEVELS, Options};
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
+
 use crate::asset::IMAGE_FORMATS;
+use crate::image::ImageInfo;
 
 const REQUEST_FIELDS: [&str; 4] = ["state", "model", "questions", "assets"];
 const QUESTION_FIELDS: [&str; 3] = ["type", "instructions", "criteria"];
@@ -183,7 +187,9 @@ fn check_asset(
         ),
     }
     match fields.get("data_base64") {
-        Some(Value::String(data)) if !data.trim().is_empty() => {}
+        Some(Value::String(data)) if !data.trim().is_empty() => {
+            check_image_data(reference, pointer, data, findings);
+        }
         _ => {
             let mut finding = Finding::error(
                 Rule::AssetData,
@@ -219,6 +225,48 @@ fn check_asset(
             )
             .suggest(r#"add "format": "png", "jpg" or "jpeg""#),
         ),
+    }
+}
+
+/// Checks what the server would check about the image itself: that `data_base64` decodes, is a
+/// PNG or JPEG, and is within the size limits. One bad image fails the whole request.
+fn check_image_data(reference: &str, pointer: &str, data: &str, findings: &mut Vec<Finding>) {
+    let pointer = child_pointer(pointer, "data_base64");
+    let Ok(bytes) = STANDARD.decode(data) else {
+        findings.push(
+            Finding::error(
+                Rule::AssetImage,
+                pointer,
+                format!("asset `{reference}`: `data_base64` is not standard base64"),
+            )
+            .suggest(
+                "encode the file as base64 with `=` padding, no line breaks and no `data:` prefix",
+            ),
+        );
+        return;
+    };
+    let Some(info) = ImageInfo::read(&bytes) else {
+        findings.push(
+            Finding::error(
+                Rule::AssetImage,
+                pointer,
+                format!("asset `{reference}` does not start like a PNG or JPEG file"),
+            )
+            .suggest(
+                "the API accepts still PNG and JPEG images only; convert GIF, WebP or HEIC first",
+            ),
+        );
+        return;
+    };
+    if let Some(problem) = info.size_problem() {
+        findings.push(
+            Finding::error(
+                Rule::AssetImage,
+                pointer,
+                format!("asset `{reference}` is {problem}"),
+            )
+            .suggest("resize the image before sending it; the API rejects it rather than resizing"),
+        );
     }
 }
 

@@ -10,16 +10,11 @@ use std::path::Path;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
+use jev_client::ImageInfo;
 use jev_client::validate::Document;
 use serde_json::{Map, Value, json};
 
 use crate::error::CliError;
-
-/// The bytes every PNG file starts with.
-const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
-
-/// The bytes every JPEG file starts with.
-const JPEG_SIGNATURE: [u8; 3] = [0xFF, 0xD8, 0xFF];
 
 /// Attaches every `--image` to the request: the file goes under `assets`, and its reference under
 /// `NAME` in the state, which must be an object (the one given outside the file, else the file's,
@@ -27,8 +22,9 @@ const JPEG_SIGNATURE: [u8; 3] = [0xFF, 0xD8, 0xFF];
 ///
 /// # Errors
 ///
-/// A usage error when a flag is malformed, a file cannot be read or is not a PNG or JPEG, a name
-/// is already used in the state, or the state is text and so has no place for a name.
+/// A usage error when a flag is malformed, a file cannot be read, is not a PNG or JPEG or is
+/// outside the API's size limits, a name is already used in the state, or the state is text and
+/// so has no place for a name.
 pub(crate) fn attach(
     flags: &[String],
     document: &mut Document,
@@ -140,36 +136,27 @@ impl Image {
             CliError::usage(format!("cannot read the image {path}: {error}"))
                 .hint("check the path passed to --image")
         })?;
-        let format = sniff(&bytes, path).ok_or_else(|| {
+        let info = ImageInfo::read(&bytes).ok_or_else(|| {
             CliError::usage(format!("{path} is not a PNG or JPEG file")).hint(
                 "the API accepts still PNG and JPEG images only; convert GIF, WebP or HEIC first",
             )
         })?;
+        if let Some(problem) = info.size_problem() {
+            return Err(CliError::usage(format!("{path} is {problem}")).hint(
+                "resize the image before sending it; the API rejects it rather than resizing",
+            ));
+        }
+        // The API spells JPEG both ways; keep the file's own spelling.
+        let format = match (info.format, Path::new(path).extension()) {
+            ("jpg", Some(extension)) if extension.eq_ignore_ascii_case("jpeg") => "jpeg",
+            (format, _) => format,
+        };
         Ok(Self {
             name: name.to_owned(),
             reference: format!("jev-image:{name}"),
             data_base64: STANDARD.encode(&bytes),
             format,
         })
-    }
-}
-
-/// The format the file's first bytes say it is, as the API spells it.
-fn sniff(bytes: &[u8], path: &str) -> Option<&'static str> {
-    if bytes.starts_with(&PNG_SIGNATURE) {
-        Some("png")
-    } else if bytes.starts_with(&JPEG_SIGNATURE) {
-        let extension = Path::new(path)
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .map(str::to_ascii_lowercase);
-        Some(if extension.as_deref() == Some("jpeg") {
-            "jpeg"
-        } else {
-            "jpg"
-        })
-    } else {
-        None
     }
 }
 
@@ -181,7 +168,16 @@ mod tests {
     use jev_client::validate::Document;
     use serde_json::{Value, json};
 
-    use super::{PNG_SIGNATURE, attach};
+    use super::attach;
+
+    /// A PNG header saying 400x300, which is all that is read of it.
+    const PNG_HEADER: [u8; 24] = [
+        0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, b'I', b'H', b'D', b'R', 0, 0,
+        1, 144, 0, 0, 1, 44,
+    ];
+
+    /// The same header, base64 encoded, as it is sent.
+    const PNG_HEADER_BASE64: &str = "iVBORw0KGgoAAAANSUhEUgAAAZAAAAEs";
 
     fn scratch(name: &str, content: &[u8]) -> String {
         let path: PathBuf =
@@ -191,7 +187,7 @@ mod tests {
     }
 
     fn png(name: &str) -> String {
-        scratch(&format!("{name}.png"), &PNG_SIGNATURE)
+        scratch(&format!("{name}.png"), &PNG_HEADER)
     }
 
     fn document() -> Document {
@@ -211,7 +207,7 @@ mod tests {
         assert_eq!(state, Some(json!({ "photo": "jev-image:photo" })));
         assert_eq!(
             document.value()["assets"],
-            json!({ "jev-image:photo": { "type": "image", "data_base64": "iVBORw0KGgo=", "format": "png" } })
+            json!({ "jev-image:photo": { "type": "image", "data_base64": PNG_HEADER_BASE64, "format": "png" } })
         );
     }
 
@@ -238,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    fn a_text_state_a_taken_name_and_a_file_that_is_not_an_image_are_usage_errors() {
+    fn a_text_state_a_taken_name_a_bad_file_and_a_small_image_are_usage_errors() {
         let flag = format!("photo={}", png("errors"));
         let mut document = document();
 
@@ -268,5 +264,16 @@ mod tests {
 
         let error = attach(&["photo".to_owned()], &mut document, &mut None).unwrap_err();
         assert!(error.message.contains("not NAME=PATH"), "{}", error.message);
+
+        let mut small = PNG_HEADER;
+        small[18..20].copy_from_slice(&[0, 100]);
+        small[22..24].copy_from_slice(&[0, 100]);
+        let flag = format!("photo={}", scratch("small.png", &small));
+        let error = attach(&[flag], &mut document, &mut None).unwrap_err();
+        assert!(
+            error.message.contains("each side must be"),
+            "{}",
+            error.message
+        );
     }
 }

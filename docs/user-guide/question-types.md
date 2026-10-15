@@ -104,6 +104,10 @@ know:
 - **One target per question.** To find several things, ask one box question for each. Small
   things in a large picture can be missed; crop to the region first.
 
+The API accepts PNG and JPEG only, each side 256 to 1568 pixels and 78,400 to 2,458,624
+pixels in all, and rejects the whole request over one bad image rather than resizing it. `jev`
+reads the size from the file's header and refuses it offline, before anything is sent.
+
 Gate on it with `--assert "mug.confidence >= 0.8"`, and read the edges with
 `--field answers.mug.box`. The size estimate counts the text only; image tokens are billed on
 top, and `usage.input_tokens` in the result shows the real figure.
@@ -117,7 +121,7 @@ state:
 questions:
   mug: { type: box, instructions: "the coffee mug in `photo`" }
 assets:
-  img-7c2f9a: { type: image, data_base64: iVBORw0KGgo=, format: png }
+  img-7c2f9a: { type: image, data_base64: iVBORw0KGgoAAAANSUhEUgAAAZAAAAEsCAIAAABi1XKV, format: png }
 ```
 
 ## Reading the answer
