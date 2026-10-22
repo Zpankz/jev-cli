@@ -447,7 +447,7 @@ jev box [OPTIONS] [QUESTION]
 
 **When to use.** Use `jev box` to find where one thing is in an image: the answer is the four edges of a box around it, as fractions of the image's width and height. Experimental (TypeSafe calls it dreamer-ready): it needs Jev 1.14 and sends `TypeSafe-Danger-Zone-Images: true`. There is no not-found answer, so ask `jev noul` (or `jev eval` with a noul beside the box) whether the thing is there at all. Use `jev eval` to locate several things in one call.
 
-**Input.** QUESTION in plain words naming the thing and the image, such as "the mug in `photo`", or --instructions-file. The image is --image NAME=PATH (PNG or JPEG, 280 to 1568 px a side); repeat for more images, and --state-file may add an object state beside them. The model is --model, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-preview` (not `jev-latest`, whose Jev 1.13 cannot answer a box).
+**Input.** QUESTION in plain words naming the thing and the image, such as "the mug in `photo`", or --instructions-file. The image is --image NAME=PATH (PNG or JPEG, 280 to 1568 px a side); repeat for more images, and --state-file may add an object state beside them. The model is --model, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-1.14.0` (not `jev-latest`, whose Jev 1.13 cannot answer a box).
 
 **Output.** `box` (`top`, `bottom`, `left`, `right`, each 0 to 1 from the top left), `confidence` (or null), then `model`, `requested_model`, `usage`, `cost_usd` (an estimate), `request_id`, `latency_ms`, and `gate` when --min-confidence was used. `--field box` prints the edges as JSON.
 

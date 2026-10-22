@@ -753,7 +753,7 @@ async fn box_sends_one_box_question_on_jev_preview_with_the_images_header() {
     let result = json_of(&run.stdout);
     assert_eq!(result["box"]["left"], 0.3, "the answer is flattened");
     assert_eq!(result["confidence"], 0.91);
-    assert_eq!(result["requested_model"], "jev-preview");
+    assert_eq!(result["requested_model"], "jev-1.14.0");
     assert_eq!(result["gate"]["passed"], true);
     assert!(
         run.stderr.contains("box_model"),
@@ -770,7 +770,7 @@ async fn box_sends_one_box_question_on_jev_preview_with_the_images_header() {
         Some("true")
     );
     let body = &sent(&server).await[0];
-    assert_eq!(body["model"], "jev-preview");
+    assert_eq!(body["model"], "jev-1.14.0");
     assert_eq!(
         body["questions"],
         json!({ "answer": { "type": "box", "instructions": "the red square in `photo`" } })

@@ -215,7 +215,7 @@ is there at all. Use `jev eval` to locate several things in one call.",
         input: "QUESTION in plain words naming the thing and the image, such as \"the mug in \
 `photo`\", or --instructions-file. The image is --image NAME=PATH (PNG or JPEG, 280 to 1568 px a \
 side); repeat for more images, and --state-file may add an object state beside them. The model is \
---model, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-preview` (not `jev-latest`, \
+--model, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-1.14.0` (not `jev-latest`, \
 whose Jev 1.13 cannot answer a box).",
         output: "`box` (`top`, `bottom`, `left`, `right`, each 0 to 1 from the top left), \
 `confidence` (or null), then `model`, `requested_model`, `usage`, `cost_usd` (an estimate), \

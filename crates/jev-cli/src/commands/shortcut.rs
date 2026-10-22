@@ -117,9 +117,10 @@ pub(crate) fn score(arguments: &ScoreArgs, context: &mut Context<'_>) -> Result<
     .run(&arguments.state, &arguments.send, context)
 }
 
-/// The model a `box` question needs when nothing chose one: Jev 1.13, behind `jev-latest`, answers
-/// a box with `400 Invalid request.`
-pub(crate) const BOX_MODEL: &str = "jev-preview";
+/// The model a `box` question uses when nothing chose one. Jev 1.13, behind `jev-latest`, answers
+/// a box with `400 Invalid request.`. The versioned id rather than the `jev-preview` alias: it has
+/// a price, so `--max-cost-usd-per-call` can check it, and it does not move between runs.
+pub(crate) const BOX_MODEL: &str = "jev-1.14.0";
 
 pub(crate) fn find(arguments: &BoxArgs, context: &mut Context<'_>) -> Result<Exit, CliError> {
     let question =
@@ -142,7 +143,7 @@ pub(crate) fn find(arguments: &BoxArgs, context: &mut Context<'_>) -> Result<Exi
                 "box_model",
                 format!("a box question needs Jev 1.14, so `{BOX_MODEL}` is used instead of `jev-latest`"),
             )
-            .hint("pin it with --model jev-1.14.0 for repeatable results"),
+            .hint("choose another with --model, e.g. jev-preview to follow the newest preview"),
         );
     }
     Shortcut {

@@ -187,7 +187,7 @@ fn find<T: Transport>(request: &Map<String, Value>) -> Tool<T> {
              \"the mug in `photo`\". Returns `box` (`top`, `bottom`, `left`, `right`, fractions \
              of the image from the top left) and `confidence`. There is no not-found answer: \
              a box always comes back, so ask a `noul` in the same `evaluate` call whether the \
-             thing is there. Needs Jev 1.14: the model defaults to `jev-preview` here. Image \
+             thing is there. Needs Jev 1.14: the model defaults to `jev-1.14.0` here. Image \
              tokens are billed but not estimated offline. Use `evaluate` to find several \
              things at once. {RESULT}"
         ),
