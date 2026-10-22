@@ -16,6 +16,50 @@ use serde_json::{Map, Value, json};
 
 use crate::error::CliError;
 
+/// Attaches every `--asset REF=PATH`: the file goes under `assets` keyed by `REF` exactly, and
+/// nothing is added to the state. The caller writes `REF` wherever the image belongs: inside a
+/// question's instructions, or as a choice option, score level or noul side in its criteria.
+///
+/// # Errors
+///
+/// A usage error when a flag is malformed, a file is not a usable image, or `REF` is already an
+/// asset of the request.
+pub(crate) fn attach_assets(flags: &[String], document: &mut Document) -> Result<(), CliError> {
+    if flags.is_empty() {
+        return Ok(());
+    }
+    let images = flags
+        .iter()
+        .map(|flag| Image::read_as(flag, "--asset"))
+        .collect::<Result<Vec<_>, _>>()?;
+    let Value::Object(root) = document.value_mut() else {
+        return Ok(());
+    };
+    let assets = root
+        .entry("assets")
+        .or_insert_with(|| Value::Object(Map::new()));
+    let Value::Object(assets) = assets else {
+        return Err(CliError::usage(
+            "the request file's `assets` is not an object, so --asset has nowhere to put the file",
+        )
+        .hint("make `assets` an object keyed by reference, or remove it"));
+    };
+    for image in images {
+        if assets.contains_key(&image.name) {
+            return Err(CliError::usage(format!(
+                "--asset {}: the request already has an asset with that reference",
+                image.name
+            ))
+            .hint("give every --asset its own reference"));
+        }
+        assets.insert(
+            image.name,
+            json!({ "type": "image", "data_base64": image.data_base64, "format": image.format }),
+        );
+    }
+    Ok(())
+}
+
 /// Attaches every `--image` to the request: the file goes under `assets`, and its reference under
 /// `NAME` in the state, which must be an object (the one given outside the file, else the file's,
 /// else a new one holding only the images).
@@ -113,9 +157,18 @@ struct Image {
 
 impl Image {
     fn read(flag: &str) -> Result<Self, CliError> {
+        Self::read_as(flag, "--image")
+    }
+
+    fn read_as(flag: &str, option: &str) -> Result<Self, CliError> {
         let invalid = |problem: &str| {
-            CliError::usage(format!("--image `{flag}` is not NAME=PATH: {problem}"))
-                .hint("write --image photo=door.jpg, then ask about `photo`")
+            CliError::usage(format!("{option} `{flag}` is not NAME=PATH: {problem}")).hint(
+                if option == "--asset" {
+                    "write --asset ref-badge=badge.jpg, then write ref-badge in the question"
+                } else {
+                    "write --image photo=door.jpg, then ask about `photo`"
+                },
+            )
         };
         let (name, path) = flag
             .split_once('=')
@@ -134,7 +187,7 @@ impl Image {
         }
         let bytes = fs::read(path).map_err(|error| {
             CliError::usage(format!("cannot read the image {path}: {error}"))
-                .hint("check the path passed to --image")
+                .hint(format!("check the path passed to {option}"))
         })?;
         let info = ImageInfo::read(&bytes).ok_or_else(|| {
             CliError::usage(format!("{path} is not a PNG or JPEG file")).hint(
@@ -168,7 +221,7 @@ mod tests {
     use jev_client::validate::Document;
     use serde_json::{Value, json};
 
-    use super::attach;
+    use super::{attach, attach_assets};
 
     /// A PNG header saying 400x300, which is all that is read of it.
     const PNG_HEADER: [u8; 24] = [
@@ -194,6 +247,26 @@ mod tests {
         Document::from_value(
             json!({ "questions": { "q": { "type": "box", "instructions": "the mug in `photo`" } } }),
         )
+    }
+
+    #[test]
+    fn an_asset_goes_under_its_own_reference_and_leaves_the_state_alone() {
+        let flag = format!("ref-badge={}", png("asset"));
+        let mut document = document();
+
+        attach_assets(std::slice::from_ref(&flag), &mut document).unwrap();
+
+        assert_eq!(
+            document.value()["assets"],
+            json!({ "ref-badge": { "type": "image", "data_base64": PNG_HEADER_BASE64, "format": "png" } })
+        );
+        assert!(document.value().get("state").is_none());
+        let error = attach_assets(&[flag], &mut document).unwrap_err();
+        assert!(
+            error.message.contains("already has an asset"),
+            "{}",
+            error.message
+        );
     }
 
     #[test]

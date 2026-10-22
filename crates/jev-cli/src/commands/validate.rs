@@ -34,6 +34,7 @@ pub(crate) fn run(arguments: &ValidateArgs, context: &mut Context<'_>) -> Result
         .map(|source| input::read_state(&source, arguments.state_format, context.stdin))
         .transpose()?;
     images::attach(&arguments.images, &mut document, &mut state)?;
+    images::attach_assets(&arguments.assets, &mut document)?;
     if let (Some(state), Value::Object(root)) = (state, document.value_mut()) {
         root.insert("state".to_owned(), state);
     }

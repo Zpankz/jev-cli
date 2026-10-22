@@ -99,6 +99,7 @@ pub(crate) fn evaluate_plan(
         .transpose()?;
     let mut document = plan.document;
     images::attach(&plan.state.images, &mut document, &mut state)?;
+    images::attach_assets(&plan.state.assets, &mut document)?;
 
     let options = PrepareOptions {
         state,

@@ -115,7 +115,7 @@ jev eval [OPTIONS] --file <FILE>
 
 **When to use.** Use `jev eval` to ask several questions about the same state in one call: the answers come back together, and extra questions cost tokens, not time. Use `jev noul`, `jev choice` or `jev score` for one question written on the command line, `jev validate` to check a request file without sending it, and `jev batch run` to apply the same questions to many states.
 
-**Input.** A request file (-f), JSON or YAML, shaped like the API body: `questions`, a map of question id to question, and optionally `state`, `model` and `assets`. The state is --state (text) or --state-file (a path, or `-` for stdin), else the file's `state`, else a pipe. --image NAME=PATH attaches a PNG or JPEG under NAME in an object state, so a question can say `NAME`; a `box` question locates something in it and needs --model jev-preview. The model is --model, else the file's `model`, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-latest`.
+**Input.** A request file (-f), JSON or YAML, shaped like the API body: `questions`, a map of question id to question, and optionally `state`, `model` and `assets`. The state is --state (text) or --state-file (a path, or `-` for stdin), else the file's `state`, else a pipe. --image NAME=PATH attaches a PNG or JPEG under NAME in an object state, so a question can say `NAME`; --asset REF=PATH attaches one under the reference REF only, to write inside instructions or criteria (a choice option defined by a picture). A `box` question locates something in an image and needs --model jev-1.14.0 or jev-preview. The model is --model, else the file's `model`, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-latest`.
 
 **Output.** The result envelope: `model` (the versioned id that answered), `requested_model`, `answers` (one per question id, exactly as the API returned them), `usage`, `cost_usd` (an estimate), `request_id` and `latency_ms`, plus `gate` when --assert was used. --dry-run prints the request body and a size estimate instead, and sends nothing; --raw prints the API's response body as received.
 
@@ -141,7 +141,8 @@ _State_
 | `--state <TEXT>` | string |  |  |  | The state to evaluate, as text (`-` is not stdin here: use --state-file -) |
 | `--state-file <PATH>` | string |  |  |  | Read the state from a file, or from stdin with `-` |
 | `--state-format <FORMAT>` | `auto`, `text`, `json` | `auto` |  |  | How to read the state: `json` sends an object or array, `text` one string |
-| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`) |
+| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (experimental; Jev 1.13 and 1.14) |
+| `--asset <REF=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat |
 
 _Sending_
 
@@ -228,7 +229,8 @@ _State_
 | `--state <TEXT>` | string |  |  |  | The state to evaluate, as text (`-` is not stdin here: use --state-file -) |
 | `--state-file <PATH>` | string |  |  |  | Read the state from a file, or from stdin with `-` |
 | `--state-format <FORMAT>` | `auto`, `text`, `json` | `auto` |  |  | How to read the state: `json` sends an object or array, `text` one string |
-| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`) |
+| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (experimental; Jev 1.13 and 1.14) |
+| `--asset <REF=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat |
 
 _Sending_
 
@@ -314,7 +316,8 @@ _State_
 | `--state <TEXT>` | string |  |  |  | The state to evaluate, as text (`-` is not stdin here: use --state-file -) |
 | `--state-file <PATH>` | string |  |  |  | Read the state from a file, or from stdin with `-` |
 | `--state-format <FORMAT>` | `auto`, `text`, `json` | `auto` |  |  | How to read the state: `json` sends an object or array, `text` one string |
-| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`) |
+| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (experimental; Jev 1.13 and 1.14) |
+| `--asset <REF=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat |
 
 _Sending_
 
@@ -399,7 +402,8 @@ _State_
 | `--state <TEXT>` | string |  |  |  | The state to evaluate, as text (`-` is not stdin here: use --state-file -) |
 | `--state-file <PATH>` | string |  |  |  | Read the state from a file, or from stdin with `-` |
 | `--state-format <FORMAT>` | `auto`, `text`, `json` | `auto` |  |  | How to read the state: `json` sends an object or array, `text` one string |
-| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`) |
+| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (experimental; Jev 1.13 and 1.14) |
+| `--asset <REF=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat |
 
 _Sending_
 
@@ -478,7 +482,8 @@ _State_
 | `--state <TEXT>` | string |  |  |  | The state to evaluate, as text (`-` is not stdin here: use --state-file -) |
 | `--state-file <PATH>` | string |  |  |  | Read the state from a file, or from stdin with `-` |
 | `--state-format <FORMAT>` | `auto`, `text`, `json` | `auto` |  |  | How to read the state: `json` sends an object or array, `text` one string |
-| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`) |
+| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (experimental; Jev 1.13 and 1.14) |
+| `--asset <REF=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat |
 
 _Sending_
 
@@ -542,6 +547,7 @@ _Options_
 | `--state-file <PATH>` | string |  |  |  | Check the request with the state in this file, or on stdin with `-` |
 | `--state-format <FORMAT>` | `auto`, `text`, `json` | `auto` |  |  | How to read a state given outside the request file |
 | `--image <NAME=PATH>` | string, repeatable |  |  |  | Check the request with a PNG or JPEG attached under NAME in an object state, as `jev eval --image` would send it; repeat for each image |
+| `--asset <REF=PATH>` | string, repeatable |  |  |  | Check the request with a PNG or JPEG attached as an asset keyed by REF, as `jev eval --asset` would send it; repeat for each image |
 | `--strict` | flag | `false` |  |  | Count warnings as errors, so that any finding makes the request invalid |
 | `--skip-size-check` | flag | `false` |  |  | Skip the offline estimate of the request's size |
 

@@ -326,7 +326,7 @@
       "about": "Evaluate a full request (state + many questions) in one API call",
       "implemented": true,
       "when_to_use": "Use `jev eval` to ask several questions about the same state in one call: the answers come back together, and extra questions cost tokens, not time. Use `jev noul`, `jev choice` or `jev score` for one question written on the command line, `jev validate` to check a request file without sending it, and `jev batch run` to apply the same questions to many states.",
-      "input": "A request file (-f), JSON or YAML, shaped like the API body: `questions`, a map of question id to question, and optionally `state`, `model` and `assets`. The state is --state (text) or --state-file (a path, or `-` for stdin), else the file's `state`, else a pipe. --image NAME=PATH attaches a PNG or JPEG under NAME in an object state, so a question can say `NAME`; a `box` question locates something in it and needs --model jev-preview. The model is --model, else the file's `model`, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-latest`.",
+      "input": "A request file (-f), JSON or YAML, shaped like the API body: `questions`, a map of question id to question, and optionally `state`, `model` and `assets`. The state is --state (text) or --state-file (a path, or `-` for stdin), else the file's `state`, else a pipe. --image NAME=PATH attaches a PNG or JPEG under NAME in an object state, so a question can say `NAME`; --asset REF=PATH attaches one under the reference REF only, to write inside instructions or criteria (a choice option defined by a picture). A `box` question locates something in an image and needs --model jev-1.14.0 or jev-preview. The model is --model, else the file's `model`, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-latest`.",
       "output": "The result envelope: `model` (the versioned id that answered), `requested_model`, `answers` (one per question id, exactly as the API returned them), `usage`, `cost_usd` (an estimate), `request_id` and `latency_ms`, plus `gate` when --assert was used. --dry-run prints the request body and a size estimate instead, and sends nothing; --raw prints the API's response body as received.",
       "arguments": [],
       "flags": [
@@ -448,7 +448,21 @@
           "env": null,
           "setting": null,
           "heading": "State",
-          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`)"
+          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (experimental; Jev 1.13 and 1.14)"
+        },
+        {
+          "name": "--asset",
+          "short": null,
+          "value_name": "REF=PATH",
+          "type": "string",
+          "required": false,
+          "multiple": true,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "State",
+          "help": "Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat"
         },
         {
           "name": "--dry-run",
@@ -760,7 +774,21 @@
           "env": null,
           "setting": null,
           "heading": "State",
-          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`)"
+          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (experimental; Jev 1.13 and 1.14)"
+        },
+        {
+          "name": "--asset",
+          "short": null,
+          "value_name": "REF=PATH",
+          "type": "string",
+          "required": false,
+          "multiple": true,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "State",
+          "help": "Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat"
         },
         {
           "name": "--dry-run",
@@ -1059,7 +1087,21 @@
           "env": null,
           "setting": null,
           "heading": "State",
-          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`)"
+          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (experimental; Jev 1.13 and 1.14)"
+        },
+        {
+          "name": "--asset",
+          "short": null,
+          "value_name": "REF=PATH",
+          "type": "string",
+          "required": false,
+          "multiple": true,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "State",
+          "help": "Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat"
         },
         {
           "name": "--dry-run",
@@ -1349,7 +1391,21 @@
           "env": null,
           "setting": null,
           "heading": "State",
-          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`)"
+          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (experimental; Jev 1.13 and 1.14)"
+        },
+        {
+          "name": "--asset",
+          "short": null,
+          "value_name": "REF=PATH",
+          "type": "string",
+          "required": false,
+          "multiple": true,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "State",
+          "help": "Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat"
         },
         {
           "name": "--dry-run",
@@ -1583,7 +1639,21 @@
           "env": null,
           "setting": null,
           "heading": "State",
-          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`)"
+          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (experimental; Jev 1.13 and 1.14)"
+        },
+        {
+          "name": "--asset",
+          "short": null,
+          "value_name": "REF=PATH",
+          "type": "string",
+          "required": false,
+          "multiple": true,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "State",
+          "help": "Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat"
         },
         {
           "name": "--dry-run",
@@ -1823,6 +1893,20 @@
           "setting": null,
           "heading": null,
           "help": "Check the request with a PNG or JPEG attached under NAME in an object state, as `jev eval --image` would send it; repeat for each image"
+        },
+        {
+          "name": "--asset",
+          "short": null,
+          "value_name": "REF=PATH",
+          "type": "string",
+          "required": false,
+          "multiple": true,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": null,
+          "help": "Check the request with a PNG or JPEG attached as an asset keyed by REF, as `jev eval --asset` would send it; repeat for each image"
         },
         {
           "name": "--strict",

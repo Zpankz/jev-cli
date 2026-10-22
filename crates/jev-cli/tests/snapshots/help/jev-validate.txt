@@ -47,6 +47,10 @@ Options:
           Check the request with a PNG or JPEG attached under NAME in an object state, as `jev eval
           --image` would send it; repeat for each image
 
+      --asset <REF=PATH>
+          Check the request with a PNG or JPEG attached as an asset keyed by REF, as `jev eval
+          --asset` would send it; repeat for each image
+
       --strict
           Count warnings as errors, so that any finding makes the request invalid
 

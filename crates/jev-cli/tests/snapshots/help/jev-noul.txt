@@ -70,7 +70,11 @@ State:
 
       --image <NAME=PATH>
           Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat
-          for each image (needs `jev-preview`)
+          for each image (experimental; Jev 1.13 and 1.14)
+
+      --asset <REF=PATH>
+          Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF
+          in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat
 
 Sending:
       --dry-run

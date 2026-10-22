@@ -154,9 +154,14 @@ pub(crate) struct StateArgs {
     pub(crate) state_format: StateFormat,
 
     /// Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat
-    /// for each image (needs `jev-preview`)
+    /// for each image (experimental; Jev 1.13 and 1.14)
     #[arg(long = "image", value_name = "NAME=PATH")]
     pub(crate) images: Vec<String>,
+
+    /// Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF in
+    /// a question's instructions or criteria (e.g. a choice option shown as a picture); repeat
+    #[arg(long = "asset", value_name = "REF=PATH")]
+    pub(crate) assets: Vec<String>,
 }
 
 /// How the request is checked and sent. Shared by every evaluating command.
@@ -389,6 +394,11 @@ pub(crate) struct ValidateArgs {
     /// --image` would send it; repeat for each image
     #[arg(long = "image", value_name = "NAME=PATH")]
     pub(crate) images: Vec<String>,
+
+    /// Check the request with a PNG or JPEG attached as an asset keyed by REF, as `jev eval
+    /// --asset` would send it; repeat for each image
+    #[arg(long = "asset", value_name = "REF=PATH")]
+    pub(crate) assets: Vec<String>,
 
     /// Count warnings as errors, so that any finding makes the request invalid
     #[arg(long)]

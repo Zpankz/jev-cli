@@ -36,8 +36,10 @@ without sending it, and `jev batch run` to apply the same questions to many stat
         input: "A request file (-f), JSON or YAML, shaped like the API body: `questions`, a map of \
 question id to question, and optionally `state`, `model` and `assets`. The state is --state (text) \
 or --state-file (a path, or `-` for stdin), else the file's `state`, else a pipe. --image NAME=PATH \
-attaches a PNG or JPEG under NAME in an object state, so a question can say `NAME`; a `box` \
-question locates something in it and needs --model jev-preview. The model is --model, else the \
+attaches a PNG or JPEG under NAME in an object state, so a question can say `NAME`; --asset \
+REF=PATH attaches one under the reference REF only, to write inside instructions or criteria (a \
+choice option defined by a picture). A `box` question locates something in an image and needs \
+--model jev-1.14.0 or jev-preview. The model is --model, else the \
 file's `model`, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-latest`.",
         output: "The result envelope: `model` (the versioned id that answered), `requested_model`, \
 `answers` (one per question id, exactly as the API returned them), `usage`, `cost_usd` (an \

@@ -91,6 +91,11 @@ jev eval -f find-mug.yaml --image photo=desk.jpg --model jev-preview -o json
 
 `--image NAME=PATH` attaches a PNG or JPEG and puts it under `NAME` in the state, so questions
 refer to it as `` `NAME` `` like any other part of the state; repeat the flag for several images.
+`--asset REF=PATH` attaches an image under the reference `REF` without touching the state: write
+`REF` inside a question's instructions ("the same person as in this badge photo: ref-badge") or as
+a criterion (a choice option, score level or noul side defined by a picture). Every asset must be
+referenced somewhere; validation reports one that is not. Images work on Jev 1.13 and 1.14 with
+every question type; only `box` needs 1.14. `jev box` is the one-question shortcut.
 The answer is `box` with `top`, `bottom`, `left` and `right` as fractions of the image's height
 and width (0 is the top left corner, 1 the bottom right), plus a `confidence`. Three things to
 know:

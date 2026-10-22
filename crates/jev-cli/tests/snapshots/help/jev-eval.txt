@@ -10,9 +10,11 @@ Input:
 A request file (-f), JSON or YAML, shaped like the API body: `questions`, a map of question id to
 question, and optionally `state`, `model` and `assets`. The state is --state (text) or --state-file
 (a path, or `-` for stdin), else the file's `state`, else a pipe. --image NAME=PATH attaches a PNG
-or JPEG under NAME in an object state, so a question can say `NAME`; a `box` question locates
-something in it and needs --model jev-preview. The model is --model, else the file's `model`, else
-TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-latest`.
+or JPEG under NAME in an object state, so a question can say `NAME`; --asset REF=PATH attaches one
+under the reference REF only, to write inside instructions or criteria (a choice option defined by a
+picture). A `box` question locates something in an image and needs --model jev-1.14.0 or
+jev-preview. The model is --model, else the file's `model`, else TYPESAFE_DEFAULT_MODEL, else the
+profile, else `jev-latest`.
 
 Output:
 The result envelope: `model` (the versioned id that answered), `requested_model`, `answers` (one per
@@ -59,7 +61,11 @@ State:
 
       --image <NAME=PATH>
           Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat
-          for each image (needs `jev-preview`)
+          for each image (experimental; Jev 1.13 and 1.14)
+
+      --asset <REF=PATH>
+          Attach a PNG or JPEG as an asset keyed by REF, without naming it in the state; write REF
+          in a question's instructions or criteria (e.g. a choice option shown as a picture); repeat
 
 Sending:
       --dry-run
