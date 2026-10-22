@@ -134,6 +134,10 @@
               {
                 "type": "object",
                 "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "box"
+                  },
                   "box": {
                     "type": "object",
                     "properties": {
@@ -170,10 +174,6 @@
                     "type": "number",
                     "format": "double",
                     "description": "How certain the model is, from 0 to 1. The box is always returned, even when the thing\nis not in the image; a confidence near 0 is the sign."
-                  },
-                  "type": {
-                    "type": "string",
-                    "const": "box"
                   }
                 },
                 "required": [

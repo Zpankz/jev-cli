@@ -154,6 +154,10 @@
           {
             "type": "object",
             "properties": {
+              "type": {
+                "type": "string",
+                "const": "box"
+              },
               "instructions": {
                 "description": "What to find, and in which image. It need not be a question.",
                 "type": [
@@ -162,10 +166,6 @@
                   "array",
                   "null"
                 ]
-              },
-              "type": {
-                "type": "string",
-                "const": "box"
               }
             },
             "description": "Locate something in an image, answered with the four edges of a box.",
