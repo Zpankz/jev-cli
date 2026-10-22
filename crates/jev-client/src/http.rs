@@ -334,7 +334,8 @@ impl Transport for HttpTransport {
             images: request.uses_images(),
             long_context: self.long_context,
         };
-        self.call(Method::POST, "v1/systemone", Some(outgoing)).await
+        self.call(Method::POST, "v1/systemone", Some(outgoing))
+            .await
     }
 
     async fn list_models(&self) -> Result<Reply<ModelList>, Error> {

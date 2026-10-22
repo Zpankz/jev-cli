@@ -171,15 +171,18 @@
                     "description": "The edges of the box."
                   },
                   "confidence": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "format": "double",
-                    "description": "How certain the model is, from 0 to 1. The box is always returned, even when the thing\nis not in the image; a confidence near 0 is the sign."
+                    "description": "How certain the model is, from 0 to 1. The box is always returned, even when the thing\nis not in the image; a confidence near 0 is the sign. `None` when the model gives no\nconfidence, which the API reference allows.",
+                    "default": null
                   }
                 },
                 "required": [
                   "type",
-                  "box",
-                  "confidence"
+                  "box"
                 ],
                 "description": "The four edges of a box in an image, and a confidence."
               },
@@ -198,14 +201,14 @@
               "type": "integer",
               "format": "uint64",
               "minimum": 0,
-              "description": "Tokens read: the state, every question, and a fixed per-request overhead.",
+              "description": "Tokens read: the state, every question, and a fixed per-request overhead.\n\nA `null` from the API is read as 0, as the SDKs do, so one missing count cannot make a\npaid answer unreadable.",
               "default": 0
             },
             "output_tokens": {
               "type": "integer",
               "format": "uint64",
               "minimum": 0,
-              "description": "Tokens produced. Reported by the API but not billed.",
+              "description": "Tokens produced. Reported by the API but not billed. `null` is read as 0.",
               "default": 0
             }
           },

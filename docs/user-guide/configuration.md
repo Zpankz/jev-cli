@@ -28,6 +28,8 @@ jev config list                      # every setting, with its source
 | `max_retries` | `--max-retries` | | `2` | Retries after the first attempt (408, 429, 5xx and connection errors only). |
 | `concurrency` | `--concurrency` | | `4` | Parallel requests in a batch run. Above roughly 8, a shared key gets rate limited. |
 | `warn_unpinned` | `--warn-unpinned` | | `false` | Remind me on stderr when a request used an alias instead of a versioned model id. |
+| `long_context` | `--long-context` | `JEV_LONG_CONTEXT` | `false` | Experimental. Send `TypeSafe-Danger-Zone-Long-Context: true` with every evaluation, which raises the per-request and per-question context to 262k tokens on Jev 1.13 and 1.14. The size check uses the 262k budgets. TypeSafe documents it as slower and less accurate than the default 64k / 32k, at the same price per token, so turn it on only for requests that need it. |
+| `compress` | `--compress` | `JEV_COMPRESS` | `false` | Gzip request bodies of 1 KiB or more (`Content-Encoding: gzip`). Saves upload time on large states and on images sent as base64. The API's 32 MiB body limit applies before and after compression alike. |
 | `update.auto` | | `JEV_AUTO_UPDATE` | `true` | Update `jev` automatically in the background. |
 | `update.channel` | | | `stable` | Releases to follow: `stable` or `prerelease`. |
 | `update.pin_version` | | | unset | Stay on one version; this turns automatic updates off. |

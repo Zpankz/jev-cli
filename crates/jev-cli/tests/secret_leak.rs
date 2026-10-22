@@ -49,11 +49,12 @@ const STATE: &str = "sentinel-state-customer-data-30ab";
 
 /// The MCP tools the sweep knows how to call. A new tool fails the test until it is added to
 /// [`mcp_session`].
-const MCP_TOOLS: [&str; 7] = [
+const MCP_TOOLS: [&str; 8] = [
     "evaluate",
     "noul",
     "choice",
     "score",
+    "box",
     "validate",
     "list_models",
     "batch_run",
@@ -326,6 +327,11 @@ impl Sandbox {
         ] {
             fs::write(sandbox.work().join(path), text).unwrap();
         }
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/eval/square.png"),
+            sandbox.work().join("photo.png"),
+        )
+        .unwrap();
         sandbox
     }
 
@@ -406,6 +412,15 @@ fn files(dir: &Path) -> Vec<PathBuf> {
     found
 }
 
+/// The test image, base64 encoded the way an MCP client would send it.
+fn square_base64() -> String {
+    use base64::Engine as _;
+    let bytes =
+        fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/eval/square.png"))
+            .unwrap();
+    base64::engine::general_purpose::STANDARD.encode(bytes)
+}
+
 /// A JSON-RPC session that calls every MCP tool, well and badly.
 fn mcp_session(sandbox: &Sandbox) -> String {
     let data = sandbox.work().join("data");
@@ -426,6 +441,14 @@ fn mcp_session(sandbox: &Sandbox) -> String {
         (
             "score",
             json!({ "state": STATE, "instructions": "How angry?", "criteria": ["Calm", "Angry"] }),
+        ),
+        (
+            "box",
+            json!({
+                "state": { "photo": "ref-photo", "note": STATE },
+                "instructions": "the square in `photo`",
+                "assets": { "ref-photo": { "type": "image", "format": "png", "data_base64": square_base64() } },
+            }),
         ),
         (
             "validate",
@@ -472,6 +495,7 @@ fn mcp_session(sandbox: &Sandbox) -> String {
 /// Every command line the sweep runs beyond the automatic `--help`, bare run and unknown flag.
 fn scenarios(sandbox: &Sandbox, api: &str) -> Vec<Scenario> {
     let mut scenarios = evaluation_scenarios();
+    scenarios.extend(image_scenarios());
     scenarios.extend(batch_scenarios(sandbox));
     scenarios.extend(account_scenarios(api));
     scenarios.extend(tooling_scenarios(sandbox));
@@ -574,6 +598,21 @@ fn evaluation_scenarios() -> Vec<Scenario> {
         ])
         .expect(0),
         offline(&["score", "How angry?", "--state", STATE, "--level", "Only"]).expect(2),
+    ]
+}
+
+/// `jev box`, which sends an image.
+fn image_scenarios() -> Vec<Scenario> {
+    vec![
+        online(&["box", "the square in `photo`", "--image", "photo=photo.png"]).expect(0),
+        offline(&[
+            "box",
+            "the square in `photo`",
+            "--image",
+            "photo=photo.png",
+            "--dry-run",
+        ])
+        .expect(0),
     ]
 }
 

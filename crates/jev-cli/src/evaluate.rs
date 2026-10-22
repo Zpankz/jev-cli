@@ -96,10 +96,9 @@ pub(crate) fn prepare(
         .map(str::to_owned);
     let (requested_model, model_origin) = match (&chosen.source, in_document) {
         (Source::Flag(flag), _) => (from_settings, (*flag).to_owned()),
-        (_, Some(model)) if options.model_origin.is_some() => (
-            model,
-            options.model_origin.unwrap_or_default().to_owned(),
-        ),
+        (_, Some(model)) if options.model_origin.is_some() => {
+            (model, options.model_origin.unwrap_or_default().to_owned())
+        }
         (_, Some(model)) => (model, "the request file".to_owned()),
         (source, None) => (
             from_settings,

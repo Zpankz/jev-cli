@@ -5,13 +5,13 @@
 //! called either.
 
 use jev_client::validate::{self, Document, Options};
-use jev_client::{Choice, Noul, Request, Score, Transport};
+use jev_client::{BoxQuestion, Choice, Noul, Request, Score, Transport};
 use schemars::JsonSchema;
 use serde_json::{Map, Value, json};
 
 use super::roots::Roots;
 use super::{Reporter, Session, batch_run, with_session};
-use crate::commands::shortcut::{ANSWER, Single};
+use crate::commands::shortcut::{ANSWER, BOX_MODEL, Single};
 use crate::commands::validate::Validation;
 use crate::error::CliError;
 use crate::schemas;
@@ -75,6 +75,7 @@ pub(super) fn all<T: Transport + 'static>(batch: Option<&Roots>) -> Vec<Tool<T>>
         noul(&request),
         choice(&request),
         score(&request),
+        find(&request),
         validate(&request),
         list_models(),
     ];
@@ -170,6 +171,30 @@ fn score<T: Transport>(request: &Map<String, Value>) -> Tool<T> {
         open_world: true,
         read_only: true,
         call: score_tool::<T>,
+    }
+}
+
+/// Where one thing is in an image.
+fn find<T: Transport>(request: &Map<String, Value>) -> Tool<T> {
+    Tool {
+        name: "box",
+        title: "Find one thing in an image",
+        description: format!(
+            "Experimental: locate one thing in an image. Put each image in `assets` as \
+             `{{\"<ref>\": {{\"type\": \"image\", \"format\": \"png\", \"data_base64\": \"...\"}}}}` \
+             (PNG or JPEG, 280 to 1568 px a side) and write `<ref>` in `state`, e.g. \
+             `{{\"photo\": \"<ref>\"}}`; `instructions` names the target and the image, such as \
+             \"the mug in `photo`\". Returns `box` (`top`, `bottom`, `left`, `right`, fractions \
+             of the image from the top left) and `confidence`. There is no not-found answer: \
+             a box always comes back, so ask a `noul` in the same `evaluate` call whether the \
+             thing is there. Needs Jev 1.14: the model defaults to `jev-preview` here. Image \
+             tokens are billed but not estimated offline. Use `evaluate` to find several \
+             things at once. {RESULT}"
+        ),
+        input_schema: box_schema(request),
+        open_world: true,
+        read_only: true,
+        call: box_tool::<T>,
     }
 }
 
@@ -285,6 +310,47 @@ fn score_tool<T: Transport>(
 /// The arguments a one-question tool takes: the request's, and the question's.
 const SINGLE_ARGUMENTS: [&str; 4] = ["state", "instructions", "criteria", "model"];
 
+/// The arguments of `box`: no criteria, and the images.
+const BOX_ARGUMENTS: [&str; 4] = ["state", "instructions", "assets", "model"];
+
+fn box_tool<T: Transport>(
+    session: &mut Session<T>,
+    arguments: &Map<String, Value>,
+    _: &mut Reporter<'_>,
+) -> Result<Value, CliError> {
+    if let Some(unknown) = arguments
+        .keys()
+        .find(|key| !BOX_ARGUMENTS.contains(&key.as_str()))
+    {
+        return Err(
+            CliError::usage(format!("`box` has no argument `{unknown}`")).hint(format!(
+                "the arguments are {}",
+                BOX_ARGUMENTS.map(|name| format!("`{name}`")).join(", ")
+            )),
+        );
+    }
+    let mut request = Map::new();
+    let mut question = Map::new();
+    question.insert("type".to_owned(), json!("box"));
+    for (name, value) in arguments {
+        if name == "instructions" {
+            question.insert(name.clone(), value.clone());
+        } else {
+            request.insert(name.clone(), value.clone());
+        }
+    }
+    // A box needs Jev 1.14. A model given here, or the server's --model, still wins over this.
+    request.entry("model").or_insert_with(|| json!(BOX_MODEL));
+    request.insert("questions".to_owned(), json!({ ANSWER: question }));
+
+    let evaluated = session.evaluate(Document::from_value(Value::Object(request)))?;
+    with_session(
+        &Single(evaluated.evaluation.envelope),
+        &evaluated.warnings,
+        session.spend(),
+    )
+}
+
 /// Runs one question, the way `jev noul`, `jev choice` and `jev score` do: as a one-question
 /// request whose answer is flattened into the result.
 fn single<T: Transport>(
@@ -323,13 +389,16 @@ fn single<T: Transport>(
 }
 
 fn validate_tool<T: Transport>(
-    _: &mut Session<T>,
+    session: &mut Session<T>,
     arguments: &Map<String, Value>,
     _: &mut Reporter<'_>,
 ) -> Result<Value, CliError> {
     let document = Document::from_value(Value::Object(arguments.clone()));
     // As `jev validate` does: the model and the state may be left to whoever evaluates it.
-    let options = Options::default().model_optional(true).state_optional(true);
+    let options = Options::default()
+        .model_optional(true)
+        .state_optional(true)
+        .long_context(session.settings.switch(crate::config::Key::LongContext));
     let report = validate::check_document(&document, &options);
     serde_json::to_value(Validation::new("request", report, false))
         .map_err(|error| CliError::internal(format!("could not encode a result: {error}")))
@@ -451,6 +520,27 @@ fn single_schema<Q: JsonSchema>(request: &Map<String, Value>) -> Value {
     Value::Object(schema)
 }
 
+/// The schema of `box`: the one-question shape, plus the request's `assets`, which it requires.
+fn box_schema(request: &Map<String, Value>) -> Value {
+    let mut schema = match single_schema::<BoxQuestion>(request) {
+        Value::Object(schema) => schema,
+        _ => Map::new(),
+    };
+    let assets = request
+        .get("properties")
+        .and_then(|properties| properties.get("assets"))
+        .cloned()
+        .unwrap_or_else(|| json!({ "type": "object" }));
+    if let Some(Value::Object(properties)) = schema.get_mut("properties") {
+        properties.insert("assets".to_owned(), assets);
+    }
+    schema.insert(
+        "required".to_owned(),
+        json!(["state", "instructions", "assets"]),
+    );
+    Value::Object(schema)
+}
+
 #[cfg(test)]
 mod tests {
     use jev_client::HttpTransport;
@@ -483,6 +573,7 @@ mod tests {
                 "noul",
                 "choice",
                 "score",
+                "box",
                 "validate",
                 "list_models"
             ]

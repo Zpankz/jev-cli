@@ -127,9 +127,10 @@ pub(crate) fn evaluate_plan(
             .as_ref()
             .map(ToString::to_string)
             .unwrap_or_default();
-        context
-            .output
-            .emit(&Preview::new(&prepared, &base_url, settings.switch(Key::LongContext)), context.stdout)?;
+        context.output.emit(
+            &Preview::new(&prepared, &base_url, settings.switch(Key::LongContext)),
+            context.stdout,
+        )?;
         return Ok(None);
     }
 

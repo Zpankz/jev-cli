@@ -105,6 +105,14 @@ Global options:
       --max-retries <N>
           Retries after the first attempt; 0 disables retrying [default: 2]
 
+      --long-context
+          Experimental: send `TypeSafe-Danger-Zone-Long-Context: true`, raising both context budgets
+          to 262k tokens; slower and less accurate [env: `JEV_LONG_CONTEXT`]
+
+      --compress
+          Gzip request bodies of 1 KiB or more; saves upload time on large states and images [env:
+          `JEV_COMPRESS`]
+
       --no-input
           Never ask for input; fail with an error naming the flag to use instead
 

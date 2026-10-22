@@ -776,6 +776,7 @@ mod tests {
             "noul",
             "choice",
             "score",
+            "box",
             "validate",
             "batch run",
             "models list",

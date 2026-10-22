@@ -722,3 +722,214 @@ async fn bad_options_are_usage_errors() {
         );
     }
 }
+
+fn square_png() -> String {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/eval/square.png")
+        .display()
+        .to_string()
+}
+
+fn found(confidence: Option<f64>) -> Value {
+    json!({ "type": "box", "box": { "top": 0.2, "bottom": 0.8, "left": 0.3, "right": 0.7 }, "confidence": confidence })
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn box_sends_one_box_question_on_jev_preview_with_the_images_header() {
+    let server = answering(found(Some(0.91))).await;
+    let mut command = jev(Some(&server));
+    command.args([
+        "box",
+        "the red square in `photo`",
+        "--image",
+        &format!("photo={}", square_png()),
+        "--min-confidence",
+        "0.5",
+    ]);
+
+    let run = run(command).await;
+
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    let result = json_of(&run.stdout);
+    assert_eq!(result["box"]["left"], 0.3, "the answer is flattened");
+    assert_eq!(result["confidence"], 0.91);
+    assert_eq!(result["requested_model"], "jev-preview");
+    assert_eq!(result["gate"]["passed"], true);
+    assert!(
+        run.stderr.contains("box_model"),
+        "the swap from jev-latest is announced: {}",
+        run.stderr
+    );
+
+    let received = server.received_requests().await.unwrap();
+    assert_eq!(
+        received[0]
+            .headers
+            .get("typesafe-danger-zone-images")
+            .map(|value| value.to_str().unwrap()),
+        Some("true")
+    );
+    let body = &sent(&server).await[0];
+    assert_eq!(body["model"], "jev-preview");
+    assert_eq!(
+        body["questions"],
+        json!({ "answer": { "type": "box", "instructions": "the red square in `photo`" } })
+    );
+    assert!(
+        body["assets"]
+            .as_object()
+            .is_some_and(|assets| assets.len() == 1)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn box_keeps_a_chosen_model_and_gates_on_confidence() {
+    let server = answering(found(Some(0.2))).await;
+    let mut command = jev(Some(&server));
+    command.args([
+        "box",
+        "the red square in `photo`",
+        "--image",
+        &format!("photo={}", square_png()),
+        "--model",
+        "jev-1.14.0",
+        "--min-confidence",
+        "0.5",
+    ]);
+
+    let run = run(command).await;
+
+    assert_eq!((run.code, run.stderr.as_str()), (10, ""));
+    assert_eq!(sent(&server).await[0]["model"], "jev-1.14.0");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_box_without_a_confidence_is_still_an_answer() {
+    let server = answering(found(None)).await;
+    let mut command = jev(Some(&server));
+    command.args([
+        "box",
+        "the red square in `photo`",
+        "--image",
+        &format!("photo={}", square_png()),
+        "-q",
+        "-o",
+        "table",
+        "--ascii",
+    ]);
+
+    let run = run(command).await;
+
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert!(run.stdout.contains("(no confidence)"), "{}", run.stdout);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn long_context_sends_its_header_and_raises_the_size_budgets() {
+    let server = answering(noul(0.9)).await;
+    let mut command = jev(Some(&server));
+    command.args(["noul", "Urgent?", "--state", "hi", "--long-context"]);
+    let run_flag = run(command).await;
+    assert_eq!(run_flag.code, 0, "{}", run_flag.stderr);
+
+    let mut command = jev(Some(&server));
+    command
+        .args(["noul", "Urgent?", "--state", "hi"])
+        .env("JEV_LONG_CONTEXT", "true");
+    assert_eq!(run(command).await.code, 0);
+
+    let mut command = jev(Some(&server));
+    command.args(["noul", "Urgent?", "--state", "hi"]);
+    assert_eq!(run(command).await.code, 0);
+
+    let headers: Vec<Option<String>> = server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .map(|request| {
+            request
+                .headers
+                .get("typesafe-danger-zone-long-context")
+                .map(|value| value.to_str().unwrap().to_owned())
+        })
+        .collect();
+    assert_eq!(
+        headers,
+        [Some("true".to_owned()), Some("true".to_owned()), None]
+    );
+
+    let mut command = jev(None);
+    command
+        .args([
+            "noul",
+            "Urgent?",
+            "--state",
+            "hi",
+            "--long-context",
+            "--dry-run",
+        ])
+        .env_remove("TYPESAFE_API_KEY");
+    let preview = json_of(&run(command).await.stdout);
+    assert_eq!(
+        preview["headers"],
+        json!(["TypeSafe-Danger-Zone-Long-Context"])
+    );
+    assert_eq!(preview["size_estimate"]["total_budget_tokens"], 262_000);
+    assert_eq!(preview["size_estimate"]["question_budget_tokens"], 262_000);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_state_over_the_default_budget_fits_with_long_context() {
+    let state = "word ".repeat(70_000);
+    let mut command = jev(None);
+    command
+        .args(["noul", "Urgent?", "--state", &state, "--dry-run"])
+        .env_remove("TYPESAFE_API_KEY");
+    let refused = run(command).await;
+    assert_eq!(refused.code, 2, "{}", refused.stdout);
+    assert!(
+        refused.stderr.contains("long context"),
+        "{}",
+        refused.stderr
+    );
+
+    let mut command = jev(None);
+    command
+        .args([
+            "noul",
+            "Urgent?",
+            "--state",
+            &state,
+            "--dry-run",
+            "--long-context",
+        ])
+        .env_remove("TYPESAFE_API_KEY");
+    let accepted = run(command).await;
+    assert_eq!(accepted.code, 0, "{}", accepted.stderr);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn compress_gzips_a_large_body() {
+    let server = answering(noul(0.9)).await;
+    let mut command = jev(Some(&server));
+    command.args([
+        "noul",
+        "Urgent?",
+        "--state",
+        &"payouts are failing ".repeat(100),
+        "--compress",
+    ]);
+
+    let run = run(command).await;
+
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    let received = server.received_requests().await.unwrap();
+    assert_eq!(
+        received[0]
+            .headers
+            .get("content-encoding")
+            .map(|value| value.to_str().unwrap()),
+        Some("gzip")
+    );
+}

@@ -259,6 +259,7 @@ async fn a_client_can_initialise_list_the_tools_and_ping() {
             "noul",
             "choice",
             "score",
+            "box",
             "validate",
             "list_models"
         ]

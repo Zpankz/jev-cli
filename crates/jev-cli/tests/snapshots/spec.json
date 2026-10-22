@@ -121,6 +121,34 @@
       "help": "Retries after the first attempt; 0 disables retrying [default: 2]"
     },
     {
+      "name": "--long-context",
+      "short": null,
+      "value_name": null,
+      "type": "boolean",
+      "required": false,
+      "multiple": false,
+      "default": false,
+      "values": null,
+      "env": "JEV_LONG_CONTEXT",
+      "setting": "long_context",
+      "heading": "Global options",
+      "help": "Experimental: send `TypeSafe-Danger-Zone-Long-Context: true`, raising both context budgets to 262k tokens; slower and less accurate [env: `JEV_LONG_CONTEXT`]"
+    },
+    {
+      "name": "--compress",
+      "short": null,
+      "value_name": null,
+      "type": "boolean",
+      "required": false,
+      "multiple": false,
+      "default": false,
+      "values": null,
+      "env": "JEV_COMPRESS",
+      "setting": "compress",
+      "heading": "Global options",
+      "help": "Gzip request bodies of 1 KiB or more; saves upload time on large states and images [env: `JEV_COMPRESS`]"
+    },
+    {
       "name": "--no-input",
       "short": null,
       "value_name": null,
@@ -1439,6 +1467,244 @@
         {
           "description": "Branch in a shell script: exit 10 when the score is above 1.5",
           "command": "if ! jev score \"How risky is this change?\" --state-file diff.txt \\\n     --level Safe --level Risky --level Dangerous --fail-over 1.5 --field score; then\n  echo \"needs a second reviewer\"\nfi"
+        }
+      ]
+    },
+    {
+      "path": "box",
+      "usage": "jev box [OPTIONS] [QUESTION]",
+      "about": "Find one thing in an image; returns the four edges of a box around it (experimental)",
+      "implemented": true,
+      "when_to_use": "Use `jev box` to find where one thing is in an image: the answer is the four edges of a box around it, as fractions of the image's width and height. Experimental (TypeSafe calls it dreamer-ready): it needs Jev 1.14 and sends `TypeSafe-Danger-Zone-Images: true`. There is no not-found answer, so ask `jev noul` (or `jev eval` with a noul beside the box) whether the thing is there at all. Use `jev eval` to locate several things in one call.",
+      "input": "QUESTION in plain words naming the thing and the image, such as \"the mug in `photo`\", or --instructions-file. The image is --image NAME=PATH (PNG or JPEG, 280 to 1568 px a side); repeat for more images, and --state-file may add an object state beside them. The model is --model, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-preview` (not `jev-latest`, whose Jev 1.13 cannot answer a box).",
+      "output": "`box` (`top`, `bottom`, `left`, `right`, each 0 to 1 from the top left), `confidence` (or null), then `model`, `requested_model`, `usage`, `cost_usd` (an estimate), `request_id`, `latency_ms`, and `gate` when --min-confidence was used. `--field box` prints the edges as JSON.",
+      "arguments": [
+        {
+          "name": "QUESTION",
+          "type": "string",
+          "required": false,
+          "multiple": false,
+          "help": "The question, in plain words"
+        }
+      ],
+      "flags": [
+        {
+          "name": "--instructions-file",
+          "short": null,
+          "value_name": "FILE",
+          "type": "string",
+          "required": false,
+          "multiple": false,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": null,
+          "help": "Structured instructions (JSON or YAML: `what`, `not_for`, `examples`, ...) instead of QUESTION"
+        },
+        {
+          "name": "--min-confidence",
+          "short": null,
+          "value_name": "C",
+          "type": "number",
+          "required": false,
+          "multiple": false,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "Gating",
+          "help": "Exit 10 when the confidence is below this"
+        },
+        {
+          "name": "--state",
+          "short": null,
+          "value_name": "TEXT",
+          "type": "string",
+          "required": false,
+          "multiple": false,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "State",
+          "help": "The state to evaluate, as text (`-` is not stdin here: use --state-file -)"
+        },
+        {
+          "name": "--state-file",
+          "short": null,
+          "value_name": "PATH",
+          "type": "string",
+          "required": false,
+          "multiple": false,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "State",
+          "help": "Read the state from a file, or from stdin with `-`"
+        },
+        {
+          "name": "--state-format",
+          "short": null,
+          "value_name": "FORMAT",
+          "type": "enum",
+          "required": false,
+          "multiple": false,
+          "default": "auto",
+          "values": [
+            {
+              "value": "auto",
+              "help": "JSON for a `.json` file, text for everything else"
+            },
+            {
+              "value": "text",
+              "help": "Send the content as one string"
+            },
+            {
+              "value": "json",
+              "help": "Parse the content as JSON and send the object or array"
+            }
+          ],
+          "env": null,
+          "setting": null,
+          "heading": "State",
+          "help": "How to read the state: `json` sends an object or array, `text` one string"
+        },
+        {
+          "name": "--image",
+          "short": null,
+          "value_name": "NAME=PATH",
+          "type": "string",
+          "required": false,
+          "multiple": true,
+          "default": null,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "State",
+          "help": "Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`)"
+        },
+        {
+          "name": "--dry-run",
+          "short": null,
+          "value_name": null,
+          "type": "boolean",
+          "required": false,
+          "multiple": false,
+          "default": false,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "Sending",
+          "help": "Validate, print the exact request body and a size estimate, and send nothing"
+        },
+        {
+          "name": "--strict",
+          "short": null,
+          "value_name": null,
+          "type": "boolean",
+          "required": false,
+          "multiple": false,
+          "default": false,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "Sending",
+          "help": "Treat validation warnings as errors"
+        },
+        {
+          "name": "--skip-size-check",
+          "short": null,
+          "value_name": null,
+          "type": "boolean",
+          "required": false,
+          "multiple": false,
+          "default": false,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "Sending",
+          "help": "Skip the offline estimate of the request's size"
+        },
+        {
+          "name": "--warn-unpinned",
+          "short": null,
+          "value_name": null,
+          "type": "boolean",
+          "required": false,
+          "multiple": false,
+          "default": false,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "Sending",
+          "help": "Remind me on stderr to pin a versioned model id when the request used an alias"
+        },
+        {
+          "name": "--raw",
+          "short": null,
+          "value_name": null,
+          "type": "boolean",
+          "required": false,
+          "multiple": false,
+          "default": false,
+          "values": null,
+          "env": null,
+          "setting": null,
+          "heading": "Sending",
+          "help": "Print the API response body exactly as received, ignoring --output"
+        }
+      ],
+      "exit_codes": [
+        {
+          "code": 0,
+          "name": "success",
+          "meaning": "success, and the condition holds (or no gate was given)"
+        },
+        {
+          "code": 2,
+          "name": "usage",
+          "meaning": "usage or validation error; nothing was sent"
+        },
+        {
+          "code": 3,
+          "name": "auth",
+          "meaning": "no API key, or the API refused it"
+        },
+        {
+          "code": 4,
+          "name": "api_rejected",
+          "meaning": "the API rejected the request"
+        },
+        {
+          "code": 5,
+          "name": "rate_limited",
+          "meaning": "rate limited or overloaded, after retries"
+        },
+        {
+          "code": 6,
+          "name": "network",
+          "meaning": "network failure, timeout or server error, after retries"
+        },
+        {
+          "code": 10,
+          "name": "gate_false",
+          "meaning": "evaluated, and --min-confidence does not hold (never an error)"
+        }
+      ],
+      "examples": [
+        {
+          "description": "Find a mug in a photo; the edges are fractions of the image",
+          "command": "jev box \"the coffee mug in `photo`\" --image photo=kitchen.jpg"
+        },
+        {
+          "description": "Only the edges, as JSON, for a script that crops the image",
+          "command": "jev box \"the signature in `scan`\" --image scan=form.png --field box"
+        },
+        {
+          "description": "Exit 10 unless the model is fairly sure of the box",
+          "command": "jev box \"the person at the door in `cam`\" --image cam=door.jpg \\\n    --model jev-1.14.0 --min-confidence 0.6"
         }
       ]
     },

@@ -19,6 +19,7 @@ Commands:
   noul        Ask one yes/no question; returns the probability of yes
   choice      Pick one option from a set you define
   score       Rate the state on an ordered rubric of 2 to 10 levels
+  box         Find one thing in an image; returns the four edges of a box around it (experimental)
   validate    Check a request file offline; nothing is sent or billed
   batch       Apply one question set to every row of a JSONL, CSV or JSON array file
   models      List the models available to the account
@@ -66,6 +67,14 @@ Global options:
 
       --max-retries <N>
           Retries after the first attempt; 0 disables retrying [default: 2]
+
+      --long-context
+          Experimental: send `TypeSafe-Danger-Zone-Long-Context: true`, raising both context budgets
+          to 262k tokens; slower and less accurate [env: `JEV_LONG_CONTEXT`]
+
+      --compress
+          Gzip request bodies of 1 KiB or more; saves upload time on large states and images [env:
+          `JEV_COMPRESS`]
 
       --no-input
           Never ask for input; fail with an error naming the flag to use instead

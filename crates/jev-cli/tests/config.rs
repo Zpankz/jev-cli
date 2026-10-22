@@ -136,6 +136,8 @@ fn with_no_configuration_every_setting_is_its_default() {
         ("max_retries", json!(2)),
         ("concurrency", json!(4)),
         ("warn_unpinned", json!(false)),
+        ("long_context", json!(false)),
+        ("compress", json!(false)),
         ("update.auto", json!(true)),
         ("update.channel", json!("stable")),
         ("update.pin_version", Value::Null),
@@ -214,6 +216,18 @@ fn config_list_reports_the_value_and_the_source_of_every_key() {
             ),
             (
                 "warn_unpinned".to_owned(),
+                json!(false),
+                "default".to_owned(),
+                Value::Null
+            ),
+            (
+                "long_context".to_owned(),
+                json!(false),
+                "default".to_owned(),
+                Value::Null
+            ),
+            (
+                "compress".to_owned(),
                 json!(false),
                 "default".to_owned(),
                 Value::Null

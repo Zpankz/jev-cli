@@ -215,6 +215,91 @@ async fn the_images_header_is_sent_only_with_an_asset_or_a_box_question() {
 }
 
 #[tokio::test]
+async fn the_long_context_header_is_sent_only_when_turned_on() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/systemone"))
+        .respond_with(success())
+        .mount(&server)
+        .await;
+    let clock = FakeClock::new();
+
+    builder(&server, &clock)
+        .build()
+        .unwrap()
+        .evaluate(&request())
+        .await
+        .unwrap();
+    builder(&server, &clock)
+        .long_context(true)
+        .build()
+        .unwrap()
+        .evaluate(&request())
+        .await
+        .unwrap();
+    builder(&server, &clock)
+        .long_context(true)
+        .build()
+        .unwrap()
+        .list_models()
+        .await
+        .ok();
+
+    let received = server.received_requests().await.unwrap();
+    let flag = |index: usize| {
+        received[index]
+            .headers
+            .get("typesafe-danger-zone-long-context")
+            .map(|value| value.to_str().unwrap().to_owned())
+    };
+    assert_eq!(flag(0), None, "off by default");
+    assert_eq!(flag(1).as_deref(), Some("true"));
+    assert_eq!(flag(2), None, "only evaluations carry it");
+}
+
+#[tokio::test]
+async fn gzip_compresses_a_large_body_and_leaves_a_small_one_alone() {
+    use std::io::Read as _;
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/systemone"))
+        .respond_with(success())
+        .mount(&server)
+        .await;
+    let clock = FakeClock::new();
+    let transport = builder(&server, &clock).gzip(true).build().unwrap();
+
+    let large = Request::new("payouts have failed ".repeat(200), "jev-1.13.0")
+        .question("is_urgent", Noul::new("Does this convey urgency?"));
+    transport.evaluate(&large).await.unwrap();
+    transport.evaluate(&request()).await.unwrap();
+
+    let received = server.received_requests().await.unwrap();
+    let compressed = &received[0];
+    assert_eq!(
+        compressed
+            .headers
+            .get("content-encoding")
+            .map(|value| value.to_str().unwrap()),
+        Some("gzip")
+    );
+    let mut json = String::new();
+    flate2::read::GzDecoder::new(compressed.body.as_slice())
+        .read_to_string(&mut json)
+        .unwrap();
+    assert_eq!(json, serde_json::to_string(&large).unwrap());
+    assert!(
+        compressed.body.len() < json.len() / 4,
+        "it is actually smaller"
+    );
+
+    let small = &received[1];
+    assert!(small.headers.get("content-encoding").is_none());
+    assert_eq!(small.body, serde_json::to_vec(&request()).unwrap());
+}
+
+#[tokio::test]
 async fn a_429_with_retry_after_waits_as_asked_and_then_succeeds() {
     let server = MockServer::start().await;
     respond(

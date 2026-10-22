@@ -60,6 +60,8 @@ _Global options_
 | `--base-url <URL>` | string | `https://api.typesafe.ai` | `TYPESAFE_BASE_URL` | `base_url` | API root |
 | `--timeout <DURATION>` | duration | `30s` |  | `timeout` | Time allowed per attempt, e.g. `30`, `30s`, `500ms` or `2m` |
 | `--max-retries <N>` | integer | `2` |  | `max_retries` | Retries after the first attempt; 0 disables retrying |
+| `--long-context` | flag | `false` | `JEV_LONG_CONTEXT` | `long_context` | Experimental: send `TypeSafe-Danger-Zone-Long-Context: true`, raising both context budgets to 262k tokens; slower and less accurate |
+| `--compress` | flag | `false` | `JEV_COMPRESS` | `compress` | Gzip request bodies of 1 KiB or more; saves upload time on large states and images |
 | `--no-input` | flag | `false` | `JEV_NO_INPUT` |  | Never ask for input; fail with an error naming the flag to use instead |
 | `--no-color` | flag | `false` |  |  | Disable colour (also honours the `NO_COLOR` environment variable) |
 | `--ascii` | flag | `false` |  |  | Use only ASCII characters in human-readable output |
@@ -76,6 +78,7 @@ _Global options_
 | [`jev noul`](#jev-noul) | Ask one yes/no question; returns the probability of yes |
 | [`jev choice`](#jev-choice) | Pick one option from a set you define |
 | [`jev score`](#jev-score) | Rate the state on an ordered rubric of 2 to 10 levels |
+| [`jev box`](#jev-box) | Find one thing in an image; returns the four edges of a box around it (experimental) |
 | [`jev validate`](#jev-validate) | Check a request file offline; nothing is sent or billed |
 | [`jev batch run`](#jev-batch-run) | Evaluate every row of an input file, writing one result record per row |
 | [`jev models list`](#jev-models-list) | List model names and aliases, with their description and release date |
@@ -432,6 +435,85 @@ if ! jev score "How risky is this change?" --state-file diff.txt \
      --level Safe --level Risky --level Dangerous --fail-over 1.5 --field score; then
   echo "needs a second reviewer"
 fi
+```
+
+### jev box
+
+Find one thing in an image; returns the four edges of a box around it (experimental)
+
+```text
+jev box [OPTIONS] [QUESTION]
+```
+
+**When to use.** Use `jev box` to find where one thing is in an image: the answer is the four edges of a box around it, as fractions of the image's width and height. Experimental (TypeSafe calls it dreamer-ready): it needs Jev 1.14 and sends `TypeSafe-Danger-Zone-Images: true`. There is no not-found answer, so ask `jev noul` (or `jev eval` with a noul beside the box) whether the thing is there at all. Use `jev eval` to locate several things in one call.
+
+**Input.** QUESTION in plain words naming the thing and the image, such as "the mug in `photo`", or --instructions-file. The image is --image NAME=PATH (PNG or JPEG, 280 to 1568 px a side); repeat for more images, and --state-file may add an object state beside them. The model is --model, else TYPESAFE_DEFAULT_MODEL, else the profile, else `jev-preview` (not `jev-latest`, whose Jev 1.13 cannot answer a box).
+
+**Output.** `box` (`top`, `bottom`, `left`, `right`, each 0 to 1 from the top left), `confidence` (or null), then `model`, `requested_model`, `usage`, `cost_usd` (an estimate), `request_id`, `latency_ms`, and `gate` when --min-confidence was used. `--field box` prints the edges as JSON.
+
+**Arguments**
+
+| Argument | Value | What it is |
+| --- | --- | --- |
+| `QUESTION` | string | The question, in plain words |
+
+**Flags**
+
+_Options_
+
+| Flag | Value | Default | Environment | Setting | What it does |
+| --- | --- | --- | --- | --- | --- |
+| `--instructions-file <FILE>` | string |  |  |  | Structured instructions (JSON or YAML: `what`, `not_for`, `examples`, ...) instead of QUESTION |
+
+_Gating_
+
+| Flag | Value | Default | Environment | Setting | What it does |
+| --- | --- | --- | --- | --- | --- |
+| `--min-confidence <C>` | number |  |  |  | Exit 10 when the confidence is below this |
+
+_State_
+
+| Flag | Value | Default | Environment | Setting | What it does |
+| --- | --- | --- | --- | --- | --- |
+| `--state <TEXT>` | string |  |  |  | The state to evaluate, as text (`-` is not stdin here: use --state-file -) |
+| `--state-file <PATH>` | string |  |  |  | Read the state from a file, or from stdin with `-` |
+| `--state-format <FORMAT>` | `auto`, `text`, `json` | `auto` |  |  | How to read the state: `json` sends an object or array, `text` one string |
+| `--image <NAME=PATH>` | string, repeatable |  |  |  | Attach a PNG or JPEG under NAME in an object state, so a question can say `NAME`; repeat for each image (needs `jev-preview`) |
+
+_Sending_
+
+| Flag | Value | Default | Environment | Setting | What it does |
+| --- | --- | --- | --- | --- | --- |
+| `--dry-run` | flag | `false` |  |  | Validate, print the exact request body and a size estimate, and send nothing |
+| `--strict` | flag | `false` |  |  | Treat validation warnings as errors |
+| `--skip-size-check` | flag | `false` |  |  | Skip the offline estimate of the request's size |
+| `--warn-unpinned` | flag | `false` |  |  | Remind me on stderr to pin a versioned model id when the request used an alias |
+| `--raw` | flag | `false` |  |  | Print the API response body exactly as received, ignoring --output |
+
+**Exit codes**
+
+| Code | Meaning |
+| ---: | --- |
+| 0 | success, and the condition holds (or no gate was given) |
+| 2 | usage or validation error; nothing was sent |
+| 3 | no API key, or the API refused it |
+| 4 | the API rejected the request |
+| 5 | rate limited or overloaded, after retries |
+| 6 | network failure, timeout or server error, after retries |
+| 10 | evaluated, and --min-confidence does not hold (never an error) |
+
+**Examples**
+
+```bash
+# Find a mug in a photo; the edges are fractions of the image
+jev box "the coffee mug in `photo`" --image photo=kitchen.jpg
+
+# Only the edges, as JSON, for a script that crops the image
+jev box "the signature in `scan`" --image scan=form.png --field box
+
+# Exit 10 unless the model is fairly sure of the box
+jev box "the person at the door in `cam`" --image cam=door.jpg \
+    --model jev-1.14.0 --min-confidence 0.6
 ```
 
 ### jev validate

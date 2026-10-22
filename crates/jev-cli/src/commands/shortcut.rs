@@ -122,7 +122,8 @@ pub(crate) fn score(arguments: &ScoreArgs, context: &mut Context<'_>) -> Result<
 pub(crate) const BOX_MODEL: &str = "jev-preview";
 
 pub(crate) fn find(arguments: &BoxArgs, context: &mut Context<'_>) -> Result<Exit, CliError> {
-    let question = json!({ "type": "box", "instructions": instructions(&arguments.question, context)? });
+    let question =
+        json!({ "type": "box", "instructions": instructions(&arguments.question, context)? });
 
     let mut conditions = Vec::new();
     if let Some(confidence) = arguments.min_confidence {
@@ -130,8 +131,11 @@ pub(crate) fn find(arguments: &BoxArgs, context: &mut Context<'_>) -> Result<Exi
     }
     // Only the built-in default is replaced: --model, TYPESAFE_DEFAULT_MODEL and a profile's model
     // are choices someone made, and stay theirs.
-    let model = matches!(context.settings()?.get(Key::Model).source, SettingSource::Default)
-        .then_some(BOX_MODEL);
+    let model = matches!(
+        context.settings()?.get(Key::Model).source,
+        SettingSource::Default
+    )
+    .then_some(BOX_MODEL);
     if model.is_some() {
         context.notify(
             &Notice::info(
