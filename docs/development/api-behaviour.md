@@ -99,6 +99,22 @@ an instruction with a backticked path such as `` `ticket.messages[0].text` ``.
   16 MiB per image, 32 MiB per request body, and one bad image fails the whole request. Not
   re-measured; validation reads the size from the PNG or JPEG header and applies them offline.
 
+## Long context and compression (observed 2026-10-22)
+
+- `TypeSafe-Danger-Zone-Long-Context: true` raises the per-request and per-question context to
+  262k tokens on `jev-1.13.0` and `jev-1.14.0`. A ~107k-token state succeeded with it (1.2 s) and
+  got `400` with no message without it. `HttpTransport::long_context` sends it on evaluations
+  only, and `validate::Options::long_context` switches the size budgets to match, so `jev` never
+  refuses offline what the header would allow. Same price per token; TypeSafe documents it as
+  slower and less accurate.
+- `Content-Encoding: gzip` (or `zstd`) is accepted, one layer only, and the 32 MiB limit applies
+  before and after decompression. `jev` offers gzip through `flate2`, already in the dependency
+  graph; zstd would add a C build dependency for no gain in what the API accepts, so the SDKs'
+  zstd default is not copied. Compression is opt-in (`compress`), from 1 KiB, as the SDKs do.
+- Multipart upload (`assets.<ref>.part`) is not implemented: base64 costs a third more bytes,
+  but one maximum-size 16 MiB image still fits the 32 MiB body, and JSON keeps `--dry-run`,
+  `--debug-bodies` and the MCP tools byte-faithful. Validation refuses `part` with a hint.
+
 ## Model facts and limits
 
 - Price: **$0.042 per million input tokens**; output tokens are free. Cost is always labelled
