@@ -26,7 +26,7 @@ use crate::response::Usage;
 const TOKENS_PER_MTOK: f64 = 1_000_000.0;
 
 /// Built-in prices: versioned model id and USD per million input tokens.
-const PRICES: &[(&str, f64)] = &[("jev-1.13.0", 0.042)];
+const PRICES: &[(&str, f64)] = &[("jev-1.13.0", 0.042), ("jev-1.14.0", 0.042)];
 
 /// The price of a model's input tokens. Output tokens are free.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -87,6 +87,13 @@ mod tests {
     #[test]
     fn one_million_input_tokens_on_jev_1_13_0_cost_exactly_0_042() {
         let cost = estimate_cost_usd("jev-1.13.0", Usage::new(1_000_000, 0));
+
+        assert_eq!(cost, Some(0.042));
+    }
+
+    #[test]
+    fn jev_1_14_0_has_the_documented_price() {
+        let cost = estimate_cost_usd("jev-1.14.0", Usage::new(1_000_000, 0));
 
         assert_eq!(cost, Some(0.042));
     }

@@ -125,6 +125,7 @@ pub(super) fn call<T: Transport + 'static>(
             state: Some(json!("a stand-in for each row's state")),
             strict: arguments.strict,
             skip_size_check: true,
+            model_origin: None,
         },
     )?;
     let concurrency = match session.settings.get(Key::Concurrency).value {

@@ -60,6 +60,8 @@ pub(crate) fn transport(
         .retry_policy(policy)
         .user_agent(concat!("jev/", env!("CARGO_PKG_VERSION")))
         .log_bodies(connection.debug_bodies)
+        .long_context(settings.get(Key::LongContext).value == Some(Value::Switch(true)))
+        .gzip(settings.get(Key::Compress).value == Some(Value::Switch(true)))
         .build()?;
     Ok((transport, notices))
 }

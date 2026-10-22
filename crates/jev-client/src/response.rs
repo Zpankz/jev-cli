@@ -5,6 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::answer::Answer;
+use crate::de;
 
 /// An evaluation response: one answer per question, under the ids the request used.
 ///
@@ -48,11 +49,14 @@ impl Response {
 #[non_exhaustive]
 pub struct Usage {
     /// Tokens read: the state, every question, and a fixed per-request overhead.
-    #[serde(default)]
+    ///
+    /// A `null` from the API is read as 0, as the SDKs do, so one missing count cannot make a
+    /// paid answer unreadable.
+    #[serde(default, deserialize_with = "de::null_as_default")]
     pub input_tokens: u64,
 
-    /// Tokens produced. Reported by the API but not billed.
-    #[serde(default)]
+    /// Tokens produced. Reported by the API but not billed. `null` is read as 0.
+    #[serde(default, deserialize_with = "de::null_as_default")]
     pub output_tokens: u64,
 }
 

@@ -98,6 +98,16 @@ pub(crate) struct GlobalArgs {
     #[arg(long, global = true, value_name = "N")]
     pub(crate) max_retries: Option<u32>,
 
+    /// Experimental: send `TypeSafe-Danger-Zone-Long-Context: true`, raising both context budgets
+    /// to 262k tokens; slower and less accurate [env: `JEV_LONG_CONTEXT`]
+    #[arg(long, global = true)]
+    pub(crate) long_context: bool,
+
+    /// Gzip request bodies of 1 KiB or more; saves upload time on large states and images [env:
+    /// `JEV_COMPRESS`]
+    #[arg(long, global = true)]
+    pub(crate) compress: bool,
+
     /// Never ask for input; fail with an error naming the flag to use instead
     #[arg(long, global = true, env = "JEV_NO_INPUT", value_parser = FalseyValueParser::new())]
     pub(crate) no_input: bool,
@@ -325,6 +335,23 @@ pub(crate) struct ScoreArgs {
     pub(crate) send: SendArgs,
 }
 
+/// Arguments of `jev box`.
+#[derive(Debug, Args)]
+pub(crate) struct BoxArgs {
+    #[command(flatten)]
+    pub(crate) question: QuestionArgs,
+
+    /// Exit 10 when the confidence is below this
+    #[arg(long, value_name = "C", help_heading = "Gating", value_parser = parse_probability)]
+    pub(crate) min_confidence: Option<f64>,
+
+    #[command(flatten)]
+    pub(crate) state: StateArgs,
+
+    #[command(flatten)]
+    pub(crate) send: SendArgs,
+}
+
 /// A probability, or a confidence: a number from 0 to 1.
 fn parse_probability(text: &str) -> Result<f64, String> {
     text.trim()
@@ -512,6 +539,9 @@ pub(crate) enum Command {
     Choice(ChoiceArgs),
     /// Rate the state on an ordered rubric of 2 to 10 levels
     Score(ScoreArgs),
+    /// Find one thing in an image; returns the four edges of a box around it (experimental)
+    #[command(name = "box")]
+    Find(BoxArgs),
     /// Check a request file offline; nothing is sent or billed
     Validate(ValidateArgs),
     /// Apply one question set to every row of a JSONL, CSV or JSON array file

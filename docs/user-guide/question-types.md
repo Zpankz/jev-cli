@@ -104,7 +104,7 @@ know:
 - **One target per question.** To find several things, ask one box question for each. Small
   things in a large picture can be missed; crop to the region first.
 
-The API accepts PNG and JPEG only, each side 256 to 1568 pixels and 78,400 to 2,458,624
+The API accepts PNG and JPEG only, each side 280 to 1568 pixels and 78,400 to 2,458,624
 pixels in all, and rejects the whole request over one bad image rather than resizing it. `jev`
 reads the size from the file's header and refuses it offline, before anything is sent.
 

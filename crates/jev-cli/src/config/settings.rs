@@ -27,13 +27,15 @@ pub(crate) enum Key {
     MaxRetries,
     Concurrency,
     WarnUnpinned,
+    LongContext,
+    Compress,
     UpdateAuto,
     UpdateChannel,
     UpdatePinVersion,
 }
 
 impl Key {
-    pub(crate) const ALL: [Self; 10] = [
+    pub(crate) const ALL: [Self; 12] = [
         Self::BaseUrl,
         Self::Model,
         Self::Output,
@@ -41,6 +43,8 @@ impl Key {
         Self::MaxRetries,
         Self::Concurrency,
         Self::WarnUnpinned,
+        Self::LongContext,
+        Self::Compress,
         Self::UpdateAuto,
         Self::UpdateChannel,
         Self::UpdatePinVersion,
@@ -72,6 +76,8 @@ impl Key {
             Self::MaxRetries => "max_retries",
             Self::Concurrency => "concurrency",
             Self::WarnUnpinned => "warn_unpinned",
+            Self::LongContext => "long_context",
+            Self::Compress => "compress",
             Self::UpdateAuto => "update.auto",
             Self::UpdateChannel => "update.channel",
             Self::UpdatePinVersion => "update.pin_version",
@@ -92,6 +98,10 @@ impl Key {
             Self::WarnUnpinned => {
                 "remind me to pin a versioned model id when a request used an alias"
             }
+            Self::LongContext => {
+                "send TypeSafe-Danger-Zone-Long-Context: 262k-token budgets, slower and less accurate (experimental)"
+            }
+            Self::Compress => "gzip request bodies of 1 KiB or more",
             Self::UpdateAuto => "update jev automatically in the background",
             Self::UpdateChannel => "releases to update to: stable or prerelease",
             Self::UpdatePinVersion => {
@@ -107,6 +117,8 @@ impl Key {
             Self::Model => Some("TYPESAFE_DEFAULT_MODEL"),
             Self::Output => Some("JEV_OUTPUT"),
             Self::UpdateAuto => Some("JEV_AUTO_UPDATE"),
+            Self::LongContext => Some("JEV_LONG_CONTEXT"),
+            Self::Compress => Some("JEV_COMPRESS"),
             _ => None,
         }
     }
@@ -120,6 +132,8 @@ impl Key {
             Self::Timeout => Some("--timeout"),
             Self::MaxRetries => Some("--max-retries"),
             Self::Concurrency => Some("--concurrency"),
+            Self::LongContext => Some("--long-context"),
+            Self::Compress => Some("--compress"),
             Self::WarnUnpinned
             | Self::UpdateAuto
             | Self::UpdateChannel
@@ -137,7 +151,7 @@ impl Key {
             Self::Timeout => Some(Value::Duration(Duration::from_secs(30))),
             Self::MaxRetries => Some(Value::Count(2)),
             Self::Concurrency => Some(Value::Count(4)),
-            Self::WarnUnpinned => Some(Value::Switch(false)),
+            Self::WarnUnpinned | Self::LongContext | Self::Compress => Some(Value::Switch(false)),
             Self::UpdateAuto => Some(Value::Switch(true)),
             Self::UpdateChannel => Some(Value::Text("stable".to_owned())),
         }
@@ -204,11 +218,13 @@ impl Key {
             Self::Timeout => duration::parse(text).map(Value::Duration).map_err(invalid),
             Self::MaxRetries => parse_count(text, 0, 100).map(Value::Count).map_err(invalid),
             Self::Concurrency => parse_count(text, 1, 64).map(Value::Count).map_err(invalid),
-            Self::WarnUnpinned | Self::UpdateAuto => match text.to_lowercase().as_str() {
-                "true" | "yes" | "on" | "1" => Ok(Value::Switch(true)),
-                "false" | "no" | "off" | "0" => Ok(Value::Switch(false)),
-                _ => Err(invalid("expected true or false".to_owned())),
-            },
+            Self::WarnUnpinned | Self::LongContext | Self::Compress | Self::UpdateAuto => {
+                match text.to_lowercase().as_str() {
+                    "true" | "yes" | "on" | "1" => Ok(Value::Switch(true)),
+                    "false" | "no" | "off" | "0" => Ok(Value::Switch(false)),
+                    _ => Err(invalid("expected true or false".to_owned())),
+                }
+            }
             Self::UpdateChannel => match text.to_lowercase().as_str() {
                 channel @ ("stable" | "prerelease") => Ok(Value::Text(channel.to_owned())),
                 _ => Err(invalid("expected stable or prerelease".to_owned())),
@@ -318,6 +334,10 @@ pub(crate) struct Flags {
     pub(crate) max_retries: Option<u32>,
     /// `jev batch run --concurrency`.
     pub(crate) concurrency: Option<u32>,
+    /// `--long-context`, given only to turn it on.
+    pub(crate) long_context: Option<bool>,
+    /// `--compress`, given only to turn it on.
+    pub(crate) compress: Option<bool>,
 }
 
 impl Flags {
@@ -329,6 +349,8 @@ impl Flags {
             Key::Timeout => self.timeout.map(Value::Duration),
             Key::MaxRetries => self.max_retries.map(Value::Count),
             Key::Concurrency => self.concurrency.map(Value::Count),
+            Key::LongContext => self.long_context.map(Value::Switch),
+            Key::Compress => self.compress.map(Value::Switch),
             Key::WarnUnpinned | Key::UpdateAuto | Key::UpdateChannel | Key::UpdatePinVersion => {
                 None
             }
@@ -586,6 +608,24 @@ mod tests {
                 "4",
             ),
             Key::WarnUnpinned => (None, None, "true", "false"),
+            Key::LongContext => (
+                Some(Flags {
+                    long_context: Some(true),
+                    ..Flags::default()
+                }),
+                Some(("JEV_LONG_CONTEXT", "true")),
+                "true",
+                "false",
+            ),
+            Key::Compress => (
+                Some(Flags {
+                    compress: Some(true),
+                    ..Flags::default()
+                }),
+                Some(("JEV_COMPRESS", "true")),
+                "true",
+                "false",
+            ),
             Key::UpdateAuto => (None, Some(("JEV_AUTO_UPDATE", "false")), "false", "true"),
             Key::UpdateChannel => (None, None, "prerelease", "stable"),
             Key::UpdatePinVersion => (None, None, "0.3.1", ""),

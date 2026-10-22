@@ -47,6 +47,7 @@ pub fn request_file(data: &[u8]) {
             state: Some(json!("a state from the command line")),
             strict: true,
             skip_size_check: false,
+            model_origin: None,
         };
         let _ = evaluate::prepare(document, &settings, &options);
     }

@@ -140,6 +140,7 @@ pub(crate) fn run(command: &Command, context: &mut Context<'_>) -> Result<Exit, 
         Command::Noul(arguments) => return shortcut::noul(arguments, context),
         Command::Choice(arguments) => return shortcut::choice(arguments, context),
         Command::Score(arguments) => return shortcut::score(arguments, context),
+        Command::Find(arguments) => return shortcut::find(arguments, context),
         // A batch with failed rows exits 7.
         Command::Batch(BatchCommand::Run(arguments)) => return batch::run(arguments, context),
         // `--check` exits 20 when an update is available.

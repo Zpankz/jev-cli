@@ -13,6 +13,10 @@ pub const TOTAL_BUDGET_TOKENS: u64 = 64_000;
 /// The budget for the state plus the single longest question.
 pub const QUESTION_BUDGET_TOKENS: u64 = 32_000;
 
+/// Both budgets with long context on (the `TypeSafe-Danger-Zone-Long-Context: true` header): 262k
+/// tokens for the whole request and for the state plus any one question, on Jev 1.13 and 1.14.
+pub const LONG_CONTEXT_BUDGET_TOKENS: u64 = 262_000;
+
 /// A run of ASCII letters no longer than this is counted as a single token.
 const SHORT_WORD_LETTERS: u64 = 8;
 
@@ -77,6 +81,14 @@ impl SizeEstimate {
             largest_question: largest.map(|(id, _)| id.to_owned()),
             question_budget_tokens: QUESTION_BUDGET_TOKENS,
         }
+    }
+
+    /// The same estimate measured against the long-context budgets.
+    #[must_use]
+    pub(crate) const fn with_long_context(mut self) -> Self {
+        self.total_budget_tokens = LONG_CONTEXT_BUDGET_TOKENS;
+        self.question_budget_tokens = LONG_CONTEXT_BUDGET_TOKENS;
+        self
     }
 }
 
@@ -206,7 +218,10 @@ impl Run {
 mod tests {
     use serde_json::json;
 
-    use super::{OVERHEAD_TOKENS, SizeEstimate, estimate_text_tokens, estimate_value_tokens};
+    use super::{
+        LONG_CONTEXT_BUDGET_TOKENS, OVERHEAD_TOKENS, SizeEstimate, estimate_text_tokens,
+        estimate_value_tokens,
+    };
 
     #[test]
     fn counts_words_digits_and_punctuation() {
@@ -307,6 +322,14 @@ mod tests {
             estimate.largest_question_tokens,
             OVERHEAD_TOKENS + 4 + long_tokens
         );
+    }
+
+    #[test]
+    fn long_context_raises_both_budgets_to_262k() {
+        let estimate = SizeEstimate::of(&json!("hi"), std::iter::empty()).with_long_context();
+
+        assert_eq!(estimate.total_budget_tokens, LONG_CONTEXT_BUDGET_TOKENS);
+        assert_eq!(estimate.question_budget_tokens, LONG_CONTEXT_BUDGET_TOKENS);
     }
 
     #[test]

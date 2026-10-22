@@ -64,6 +64,9 @@ pub(crate) struct PrepareOptions {
     pub(crate) strict: bool,
     /// Skip the size estimate.
     pub(crate) skip_size_check: bool,
+    /// Where a `model` written into the document came from, when it was not a request file: a
+    /// shortcut that needs a particular model says so here.
+    pub(crate) model_origin: Option<&'static str>,
 }
 
 /// Fills in the model and the state, validates, and produces the typed request.
@@ -93,6 +96,10 @@ pub(crate) fn prepare(
         .map(str::to_owned);
     let (requested_model, model_origin) = match (&chosen.source, in_document) {
         (Source::Flag(flag), _) => (from_settings, (*flag).to_owned()),
+        (_, Some(model)) if options.model_origin.is_some() => (
+            model,
+            options.model_origin.unwrap_or_default().to_owned(),
+        ),
         (_, Some(model)) => (model, "the request file".to_owned()),
         (source, None) => (
             from_settings,
@@ -112,9 +119,12 @@ pub(crate) fn prepare(
         }
     }
 
+    // Long context is a property of how the request is sent, so the size is measured against the
+    // budgets that the transport's header will ask for.
     let validation = Options::default()
         .strict(options.strict)
-        .skip_size_check(options.skip_size_check);
+        .skip_size_check(options.skip_size_check)
+        .long_context(settings.switch(Key::LongContext));
     let report = validate::check_document(&document, &validation);
     if !report.is_valid() {
         return Err(invalid_request(&report));

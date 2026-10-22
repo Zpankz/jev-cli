@@ -221,14 +221,16 @@ pub struct BoxAnswer {
     pub edges: BoxEdges,
 
     /// How certain the model is, from 0 to 1. The box is always returned, even when the thing
-    /// is not in the image; a confidence near 0 is the sign.
-    pub confidence: f64,
+    /// is not in the image; a confidence near 0 is the sign. `None` when the model gives no
+    /// confidence, which the API reference allows.
+    #[serde(default)]
+    pub confidence: Option<f64>,
 }
 
 impl BoxAnswer {
     /// A box answer.
     #[must_use]
-    pub const fn new(edges: BoxEdges, confidence: f64) -> Self {
+    pub const fn new(edges: BoxEdges, confidence: Option<f64>) -> Self {
         Self { edges, confidence }
     }
 }

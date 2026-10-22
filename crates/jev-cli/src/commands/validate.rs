@@ -39,9 +39,11 @@ pub(crate) fn run(arguments: &ValidateArgs, context: &mut Context<'_>) -> Result
     }
 
     // A request file may leave the model and the state to whoever evaluates it.
+    let long_context = context.settings()?.switch(crate::config::Key::LongContext);
     let options = Options::default()
         .strict(arguments.strict)
         .skip_size_check(arguments.skip_size_check)
+        .long_context(long_context)
         .model_optional(true)
         .state_optional(true);
     let report = validate::check_document(&document, &options);

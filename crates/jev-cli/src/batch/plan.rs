@@ -99,6 +99,7 @@ impl Plan {
             state: Some(state),
             strict: job.strict,
             skip_size_check: job.skip_size_check,
+            model_origin: None,
         };
         let prepared =
             evaluate::prepare(job.questions.clone(), job.settings, &options).map_err(|error| {

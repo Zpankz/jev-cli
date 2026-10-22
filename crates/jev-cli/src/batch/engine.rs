@@ -351,6 +351,7 @@ fn admit(job: &Job<'_>, ids: &mut Option<Ids>, row: Result<Row, RowProblem>) -> 
         state: Some(state),
         strict: job.strict,
         skip_size_check: job.skip_size_check,
+        model_origin: None,
     };
     let settled = Settled { id, row: kept };
     match evaluate::prepare(job.questions.clone(), job.settings, &options) {

@@ -4,7 +4,9 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
+use reqwest::header::{
+    ACCEPT, AUTHORIZATION, CONTENT_ENCODING, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT,
+};
 use reqwest::{Method, Url};
 use rustls_platform_verifier::BuilderVerifierExt;
 use serde::de::DeserializeOwned;
@@ -27,6 +29,14 @@ const REQUEST_ID_HEADER: &str = "x-typesafe-request-id";
 /// The request header that lets a request carry images or ask a `box` question. Without it the
 /// API answers `400 Images are experimental`; it is sent only when the request needs it.
 const IMAGES_HEADER: &str = "typesafe-danger-zone-images";
+
+/// The request header that raises both context budgets to 262k tokens. Long context is slower and
+/// less accurate, so it is sent only when the caller asked for it.
+const LONG_CONTEXT_HEADER: &str = "typesafe-danger-zone-long-context";
+
+/// Bodies smaller than this are sent as they are when compression is on; compressing a few
+/// hundred bytes saves nothing. The SDKs use the same threshold.
+const COMPRESS_FROM_BYTES: usize = 1024;
 
 /// The largest response body that is read. A real response is a few kilobytes; the cap stops a
 /// misbehaving server or proxy from exhausting memory.
@@ -74,6 +84,8 @@ pub struct HttpTransport {
     retry: RetryPolicy,
     clock: Arc<dyn Clock>,
     log_bodies: bool,
+    long_context: bool,
+    gzip: bool,
     throttle: Option<Arc<Throttle>>,
 }
 
@@ -88,6 +100,8 @@ impl HttpTransport {
             clock: Arc::new(SystemClock),
             user_agent: None,
             log_bodies: false,
+            long_context: false,
+            gzip: false,
         }
     }
 
@@ -117,8 +131,7 @@ impl HttpTransport {
         &self,
         method: Method,
         path: &str,
-        body: Option<Vec<u8>>,
-        images: bool,
+        body: Option<Outgoing>,
     ) -> Result<Reply<T>, Error> {
         let url = self.base_url.endpoint(path).map_err(|error| {
             Error::new(ErrorKind::InvalidRequest, error.to_string()).with_source(error)
@@ -135,7 +148,7 @@ impl HttpTransport {
                 throttle.wait(self.clock.as_ref()).await;
             }
             let outcome = self
-                .attempt::<T>(&method, &url, body.as_deref(), images, attempt)
+                .attempt::<T>(&method, &url, body.as_ref(), attempt)
                 .await;
 
             let failure = match outcome {
@@ -192,13 +205,12 @@ impl HttpTransport {
         &self,
         method: &Method,
         url: &Url,
-        body: Option<&[u8]>,
-        images: bool,
+        body: Option<&Outgoing>,
         attempt: u32,
     ) -> Result<(T, Option<String>, String), Error> {
         tracing::debug!(%method, %url, attempt, "sending request");
         if let (true, Some(body)) = (self.log_bodies, body) {
-            let body = self.api_key.scrub(&String::from_utf8_lossy(body));
+            let body = self.api_key.scrub(&String::from_utf8_lossy(&body.json));
             tracing::debug!(target: BODY_LOG_TARGET, %body, "request body");
         }
 
@@ -208,12 +220,19 @@ impl HttpTransport {
             .header(AUTHORIZATION, self.authorization.clone())
             .header(ACCEPT, HeaderValue::from_static("application/json"));
         if let Some(body) = body {
-            builder = builder
-                .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
-                .body(body.to_vec());
-        }
-        if images {
-            builder = builder.header(IMAGES_HEADER, HeaderValue::from_static("true"));
+            builder = builder.header(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+            builder = match &body.gzipped {
+                Some(gzipped) => builder
+                    .header(CONTENT_ENCODING, HeaderValue::from_static("gzip"))
+                    .body(gzipped.clone()),
+                None => builder.body(body.json.clone()),
+            };
+            if body.images {
+                builder = builder.header(IMAGES_HEADER, HeaderValue::from_static("true"));
+            }
+            if body.long_context {
+                builder = builder.header(LONG_CONTEXT_HEADER, HeaderValue::from_static("true"));
+            }
         }
 
         let sent = self.clock.now();
@@ -304,18 +323,55 @@ impl Transport for HttpTransport {
             )
             .with_source(error)
         })?;
-        self.call(
-            Method::POST,
-            "v1/systemone",
-            Some(body),
-            request.uses_images(),
-        )
-        .await
+        let gzipped = if self.gzip && body.len() >= COMPRESS_FROM_BYTES {
+            Some(gzip(&body)?)
+        } else {
+            None
+        };
+        let outgoing = Outgoing {
+            json: body,
+            gzipped,
+            images: request.uses_images(),
+            long_context: self.long_context,
+        };
+        self.call(Method::POST, "v1/systemone", Some(outgoing)).await
     }
 
     async fn list_models(&self) -> Result<Reply<ModelList>, Error> {
-        self.call(Method::GET, "v1/models", None, false).await
+        self.call(Method::GET, "v1/models", None).await
     }
+}
+
+/// A request body ready to send, with what its headers must say about it.
+struct Outgoing {
+    /// The JSON as serialised; the form that is logged with `log_bodies`.
+    json: Vec<u8>,
+    /// The JSON compressed with gzip, sent instead of `json` when present.
+    gzipped: Option<Vec<u8>>,
+    /// Whether the request carries images or a `box` question.
+    images: bool,
+    /// Whether to ask for the long-context budgets.
+    long_context: bool,
+}
+
+/// Compresses `body` as one gzip member, the only layer the API accepts.
+fn gzip(body: &[u8]) -> Result<Vec<u8>, Error> {
+    use std::io::Write as _;
+
+    let mut encoder = flate2::write::GzEncoder::new(
+        Vec::with_capacity(body.len() / 4),
+        flate2::Compression::default(),
+    );
+    encoder
+        .write_all(body)
+        .and_then(|()| encoder.finish())
+        .map_err(|error| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                format!("the request could not be compressed: {error}"),
+            )
+            .with_source(error)
+        })
 }
 
 impl fmt::Debug for HttpTransport {
@@ -326,6 +382,8 @@ impl fmt::Debug for HttpTransport {
             .field("api_key", &self.api_key)
             .field("retry", &self.retry)
             .field("log_bodies", &self.log_bodies)
+            .field("long_context", &self.long_context)
+            .field("gzip", &self.gzip)
             .field("throttle", &self.throttle)
             .finish_non_exhaustive()
     }
@@ -339,6 +397,8 @@ pub struct HttpTransportBuilder {
     clock: Arc<dyn Clock>,
     user_agent: Option<String>,
     log_bodies: bool,
+    long_context: bool,
+    gzip: bool,
 }
 
 impl HttpTransportBuilder {
@@ -372,6 +432,28 @@ impl HttpTransportBuilder {
     #[must_use]
     pub const fn log_bodies(mut self, enabled: bool) -> Self {
         self.log_bodies = enabled;
+        self
+    }
+
+    /// Sends every evaluation with `TypeSafe-Danger-Zone-Long-Context: true`, which raises the
+    /// per-request and per-question context to 262k tokens on Jev 1.13 and 1.14.
+    ///
+    /// Off by default: TypeSafe documents long context as experimental, slower and less accurate
+    /// than staying within the default 64k / 32k budgets. The price per token is the same.
+    #[must_use]
+    pub const fn long_context(mut self, enabled: bool) -> Self {
+        self.long_context = enabled;
+        self
+    }
+
+    /// Compresses evaluation bodies of 1 KiB or more with gzip (`Content-Encoding: gzip`).
+    ///
+    /// Off by default. It saves upload time on a large state or an image sent as base64. The
+    /// API's 32 MiB limit applies to the body before and after compression alike, so it never lets
+    /// a larger request through.
+    #[must_use]
+    pub const fn gzip(mut self, enabled: bool) -> Self {
+        self.gzip = enabled;
         self
     }
 
@@ -442,6 +524,8 @@ impl HttpTransportBuilder {
             retry: self.retry,
             clock: self.clock,
             log_bodies: self.log_bodies,
+            long_context: self.long_context,
+            gzip: self.gzip,
             throttle: None,
         })
     }
@@ -456,6 +540,8 @@ impl fmt::Debug for HttpTransportBuilder {
             .field("retry", &self.retry)
             .field("user_agent", &self.user_agent)
             .field("log_bodies", &self.log_bodies)
+            .field("long_context", &self.long_context)
+            .field("gzip", &self.gzip)
             .finish_non_exhaustive()
     }
 }

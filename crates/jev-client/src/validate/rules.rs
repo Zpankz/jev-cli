@@ -825,6 +825,7 @@ fn check_duplicates(
 
 /// Compares the estimate with both budgets.
 pub(super) fn check_size(estimate: &SizeEstimate, findings: &mut Vec<Finding>) {
+    let long = estimate.total_budget_tokens >= super::LONG_CONTEXT_BUDGET_TOKENS;
     let checks = [
         (
             Rule::SizeTotal,
@@ -833,7 +834,11 @@ pub(super) fn check_size(estimate: &SizeEstimate, findings: &mut Vec<Finding>) {
             "the whole request".to_owned(),
             "",
             None,
-            "shorten `state`, or send the questions in several requests",
+            if long {
+                "shorten `state`, or send the questions in several requests"
+            } else {
+                "shorten `state`, send the questions in several requests, or send it with long context (262k tokens; slower and less accurate)"
+            },
         ),
         (
             Rule::SizeQuestion,
@@ -845,7 +850,11 @@ pub(super) fn check_size(estimate: &SizeEstimate, findings: &mut Vec<Finding>) {
             ),
             "/state",
             estimate.largest_question.as_deref(),
-            "shorten or chunk `state`; every question is judged against the whole of it",
+            if long {
+                "shorten or chunk `state`; every question is judged against the whole of it"
+            } else {
+                "shorten or chunk `state` (every question is judged against the whole of it), or send it with long context (262k tokens; slower and less accurate)"
+            },
         ),
     ];
 

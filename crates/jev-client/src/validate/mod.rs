@@ -41,8 +41,8 @@ mod size;
 pub use document::{Document, DuplicateKey};
 pub use finding::{Finding, Report, Rule, Severity};
 pub use size::{
-    OVERHEAD_TOKENS, QUESTION_BUDGET_TOKENS, SizeEstimate, TOTAL_BUDGET_TOKENS,
-    estimate_text_tokens, estimate_value_tokens,
+    LONG_CONTEXT_BUDGET_TOKENS, OVERHEAD_TOKENS, QUESTION_BUDGET_TOKENS, SizeEstimate,
+    TOTAL_BUDGET_TOKENS, estimate_text_tokens, estimate_value_tokens,
 };
 
 use crate::request::Request;
@@ -74,6 +74,7 @@ pub struct Options {
     skip_size_check: bool,
     model_optional: bool,
     state_optional: bool,
+    long_context: bool,
 }
 
 impl Options {
@@ -109,6 +110,14 @@ impl Options {
         self
     }
 
+    /// Measures the size against the long-context budgets (262k tokens for the request and for
+    /// each question), for a request sent with `TypeSafe-Danger-Zone-Long-Context: true`.
+    #[must_use]
+    pub const fn long_context(mut self, long_context: bool) -> Self {
+        self.long_context = long_context;
+        self
+    }
+
     /// Whether warnings are promoted to errors.
     #[must_use]
     pub const fn is_strict(&self) -> bool {
@@ -130,7 +139,10 @@ pub fn check_document(document: &Document, options: &Options) -> Report {
                 .questions
                 .iter()
                 .map(|question| (question.id, question.value));
-            let estimate = SizeEstimate::of(state, questions);
+            let mut estimate = SizeEstimate::of(state, questions);
+            if options.long_context {
+                estimate = estimate.with_long_context();
+            }
             rules::check_size(&estimate, &mut findings);
             size = Some(estimate);
         }

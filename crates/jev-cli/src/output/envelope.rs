@@ -207,7 +207,10 @@ fn write_answer(text: &mut String, id: &str, answer: &Answer, ui: Ui) {
                     "top {:.2}  bottom {:.2}  left {:.2}  right {:.2}",
                     edges.top, edges.bottom, edges.left, edges.right
                 )),
-                ui.dim(&format!("(confidence {:.2})", answer.confidence))
+                ui.dim(&answer.confidence.map_or_else(
+                    || "(no confidence)".to_owned(),
+                    |confidence| format!("(confidence {confidence:.2})")
+                ))
             );
         }
         other => {

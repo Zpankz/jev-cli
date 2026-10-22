@@ -1,4 +1,4 @@
-//! `jev noul`, `jev choice` and `jev score`: one question from the command line.
+//! `jev noul`, `jev choice`, `jev score` and `jev box`: one question from the command line.
 //!
 //! Each builds the same request document `jev eval` reads from a file, and then runs it the same
 //! way, so validation, model resolution and the state inputs cannot differ between them.
@@ -9,11 +9,13 @@ use serde_json::{Map, Value, json};
 
 use super::Context;
 use super::eval::{Plan, Source, evaluate_plan};
-use crate::cli::{ChoiceArgs, NoulArgs, QuestionArgs, ScoreArgs, SendArgs, StateArgs};
+use crate::cli::{BoxArgs, ChoiceArgs, NoulArgs, QuestionArgs, ScoreArgs, SendArgs, StateArgs};
+use crate::config::{Key, Source as SettingSource};
 use crate::error::CliError;
 use crate::exit::Exit;
 use crate::gate::{self, AbstainBand, Condition, GateOutcome, Op};
 use crate::input;
+use crate::notice::Notice;
 use crate::output::{Render, ResultEnvelope, Ui};
 
 /// The id of a shortcut's only question. It is never sent to the model, and never shown.
@@ -115,6 +117,39 @@ pub(crate) fn score(arguments: &ScoreArgs, context: &mut Context<'_>) -> Result<
     .run(&arguments.state, &arguments.send, context)
 }
 
+/// The model a `box` question needs when nothing chose one: Jev 1.13, behind `jev-latest`, answers
+/// a box with `400 Invalid request.`
+pub(crate) const BOX_MODEL: &str = "jev-preview";
+
+pub(crate) fn find(arguments: &BoxArgs, context: &mut Context<'_>) -> Result<Exit, CliError> {
+    let question = json!({ "type": "box", "instructions": instructions(&arguments.question, context)? });
+
+    let mut conditions = Vec::new();
+    if let Some(confidence) = arguments.min_confidence {
+        conditions.push(Condition::number(ANSWER, true, Op::Ge, confidence));
+    }
+    // Only the built-in default is replaced: --model, TYPESAFE_DEFAULT_MODEL and a profile's model
+    // are choices someone made, and stay theirs.
+    let model = matches!(context.settings()?.get(Key::Model).source, SettingSource::Default)
+        .then_some(BOX_MODEL);
+    if model.is_some() {
+        context.notify(
+            &Notice::info(
+                "box_model",
+                format!("a box question needs Jev 1.14, so `{BOX_MODEL}` is used instead of `jev-latest`"),
+            )
+            .hint("pin it with --model jev-1.14.0 for repeatable results"),
+        );
+    }
+    Shortcut {
+        question,
+        conditions,
+        abstain: None,
+        hidden_lints: &[],
+    }
+    .run_with_model(&arguments.state, &arguments.send, model, context)
+}
+
 /// Turns repeated `--option name[=description]` flags into choice criteria, in the order given.
 /// An option without a description is sent as `null`.
 fn options_from_flags(flags: &[String]) -> Result<Value, CliError> {
@@ -178,7 +213,23 @@ impl Shortcut<'_> {
         send: &SendArgs,
         context: &mut Context<'_>,
     ) -> Result<Exit, CliError> {
-        let document = Document::from_value(json!({ "questions": { ANSWER: self.question } }));
+        self.run_with_model(state, send, None, context)
+    }
+
+    /// Runs the shortcut; `model`, when given, is written into the request as a request file
+    /// would name it, so `--model` still outranks it.
+    fn run_with_model(
+        self,
+        state: &StateArgs,
+        send: &SendArgs,
+        model: Option<&str>,
+        context: &mut Context<'_>,
+    ) -> Result<Exit, CliError> {
+        let mut body = json!({ "questions": { ANSWER: self.question } });
+        if let (Some(model), Value::Object(root)) = (model, &mut body) {
+            root.insert("model".to_owned(), json!(model));
+        }
+        let document = Document::from_value(body);
         let plan = Plan {
             document,
             source: Source {
@@ -189,6 +240,7 @@ impl Shortcut<'_> {
             send,
             conditions: &self.conditions,
             hidden_lints: self.hidden_lints,
+            model_origin: model.map(|_| "jev box, which needs Jev 1.14"),
         };
         let Some(evaluation) = evaluate_plan(plan, context)? else {
             return Ok(Exit::Success);

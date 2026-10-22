@@ -1,8 +1,9 @@
 //! What can be known about an image file from its first bytes: the format and the size in
 //! pixels, which the API checks against fixed limits and rejects the whole request over.
 
-/// The smallest width or height the API accepts, in pixels.
-pub const MIN_IMAGE_SIDE: u32 = 256;
+/// The smallest width or height the API accepts, in pixels. The images page documents 280 (the
+/// side of the smallest square the pixel total allows); an earlier draft said 256.
+pub const MIN_IMAGE_SIDE: u32 = 280;
 
 /// The largest width or height the API accepts, in pixels.
 pub const MAX_IMAGE_SIDE: u32 = 1568;
@@ -133,7 +134,7 @@ fn jpeg_size(bytes: &[u8]) -> Option<(u32, u32)> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ImageInfo, MAX_IMAGE_PIXELS, MAX_IMAGE_SIDE, MIN_IMAGE_SIDE};
+    use super::{ImageInfo, MAX_IMAGE_PIXELS, MAX_IMAGE_SIDE, MIN_IMAGE_PIXELS, MIN_IMAGE_SIDE};
 
     fn png(width: u32, height: u32) -> Vec<u8> {
         let mut bytes = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13];
@@ -160,8 +161,8 @@ mod tests {
     fn png_and_jpeg_headers_give_the_format_and_the_size() {
         let info = ImageInfo::read(&png(400, 300)).unwrap();
         assert_eq!((info.format, info.width, info.height), ("png", 400, 300));
-        let info = ImageInfo::read(&jpeg(1568, 256)).unwrap();
-        assert_eq!((info.format, info.width, info.height), ("jpg", 1568, 256));
+        let info = ImageInfo::read(&jpeg(1568, 280)).unwrap();
+        assert_eq!((info.format, info.width, info.height), ("jpg", 1568, 280));
     }
 
     #[test]
@@ -177,9 +178,11 @@ mod tests {
         let problem = |width, height| ImageInfo::read(&png(width, height)).unwrap().size_problem();
         assert_eq!(problem(MIN_IMAGE_SIDE, 320), None);
         assert_eq!(problem(MAX_IMAGE_SIDE, MAX_IMAGE_SIDE), None);
-        assert!(problem(255, 400).unwrap().contains("each side"));
+        assert!(problem(279, 400).unwrap().contains("each side"));
+        assert!(problem(256, 320).unwrap().contains("each side"));
         assert!(problem(1569, 400).unwrap().contains("each side"));
-        assert!(problem(256, 300).unwrap().contains("the total"));
+        assert_eq!(problem(280, 280), None);
+        assert_eq!(MIN_IMAGE_PIXELS, 280 * 280);
         assert_eq!(MAX_IMAGE_PIXELS, 1568 * 1568);
     }
 }

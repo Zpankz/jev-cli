@@ -156,6 +156,8 @@ fn run(arguments: &[String], terminal: Terminal, early_format: Format) -> Result
         timeout: global.timeout,
         max_retries: global.max_retries,
         concurrency: cli.command.concurrency(),
+        long_context: global.long_context.then_some(true),
+        compress: global.compress.then_some(true),
     };
     let store = config::config_dir(&env).map(ConfigStore::new);
     let loaded = store.clone().and_then(|store| {

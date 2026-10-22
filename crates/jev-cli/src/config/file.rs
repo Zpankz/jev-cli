@@ -366,7 +366,10 @@ fn read_shared(
 
 /// Reads a setting from the TOML value a person wrote.
 fn from_toml(key: Key, item: &Item) -> Result<Value, String> {
-    let switch = matches!(key, Key::WarnUnpinned | Key::UpdateAuto);
+    let switch = matches!(
+        key,
+        Key::WarnUnpinned | Key::LongContext | Key::Compress | Key::UpdateAuto
+    );
     let text = match (key, item.as_value()) {
         (Key::Timeout, Some(toml_edit::Value::Integer(seconds))) => seconds.value().to_string(),
         (Key::Timeout, Some(toml_edit::Value::Float(seconds))) => seconds.value().to_string(),

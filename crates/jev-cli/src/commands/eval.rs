@@ -37,6 +37,7 @@ pub(crate) fn run(arguments: &EvalArgs, context: &mut Context<'_>) -> Result<Exi
         send: &arguments.send,
         conditions: &conditions,
         hidden_lints: &[],
+        model_origin: None,
     };
     let Some(mut evaluation) = evaluate_plan(plan, context)? else {
         return Ok(Exit::Success);
@@ -72,6 +73,8 @@ pub(crate) struct Plan<'a> {
     pub(crate) conditions: &'a [Condition],
     /// Ids of lint rules whose warnings the caller asked not to see.
     pub(crate) hidden_lints: &'a [&'a str],
+    /// What chose the document's `model`, when a shortcut wrote it there.
+    pub(crate) model_origin: Option<&'static str>,
 }
 
 /// Runs a plan: resolve the state, validate, check the gates can be decided, then send.
@@ -101,6 +104,7 @@ pub(crate) fn evaluate_plan(
         state,
         strict: plan.send.strict,
         skip_size_check: plan.send.skip_size_check,
+        model_origin: plan.model_origin,
     };
     let prepared = evaluate::prepare(document, &settings, &options)?;
     for condition in plan.conditions {
@@ -125,7 +129,7 @@ pub(crate) fn evaluate_plan(
             .unwrap_or_default();
         context
             .output
-            .emit(&Preview::new(&prepared, &base_url), context.stdout)?;
+            .emit(&Preview::new(&prepared, &base_url, settings.switch(Key::LongContext)), context.stdout)?;
         return Ok(None);
     }
 
@@ -208,6 +212,9 @@ struct Preview {
     model_origin: String,
     /// The exact request body. The API key is not part of it, or of anything printed here.
     body: Request,
+    /// The experimental opt-in headers the request would carry, each set to `true`. Empty for an
+    /// ordinary request. `Authorization` and the other standard headers are not listed.
+    headers: Vec<&'static str>,
     /// An estimate of the input tokens, unless the size check was skipped.
     size_estimate: Option<SizeEstimate>,
     /// Validation warnings. There are no errors, or this would not have been reached.
@@ -215,13 +222,21 @@ struct Preview {
 }
 
 impl Preview {
-    fn new(prepared: &Prepared, base_url: &str) -> Self {
+    fn new(prepared: &Prepared, base_url: &str, long_context: bool) -> Self {
+        let mut headers = Vec::new();
+        if prepared.request.uses_images() {
+            headers.push("TypeSafe-Danger-Zone-Images");
+        }
+        if long_context {
+            headers.push("TypeSafe-Danger-Zone-Long-Context");
+        }
         Self {
             dry_run: true,
             endpoint: format!("{}/v1/systemone", base_url.trim_end_matches('/')),
             requested_model: prepared.requested_model.clone(),
             model_origin: prepared.model_origin.clone(),
             body: prepared.request.clone(),
+            headers,
             size_estimate: prepared.report.size.clone(),
             warnings: prepared.report.warnings().cloned().collect(),
         }
@@ -240,6 +255,9 @@ impl Render for Preview {
             printable(&self.requested_model),
             printable(&self.model_origin)
         );
+        for header in &self.headers {
+            let _ = writeln!(text, "{header}: true");
+        }
         if let Some(size) = &self.size_estimate {
             let _ = writeln!(
                 text,

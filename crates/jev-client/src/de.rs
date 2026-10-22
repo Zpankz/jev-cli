@@ -20,6 +20,15 @@ where
     T::deserialize(deserializer).map(Some)
 }
 
+/// Deserialises a value that the API may send as `null`, reading `null` as the type's default.
+pub(crate) fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + Default,
+{
+    Option::<T>::deserialize(deserializer).map(Option::unwrap_or_default)
+}
+
 /// Deserialises a map in document order and rejects a repeated key.
 ///
 /// Parsers normally keep the last of two identical keys, which would silently drop a question or
